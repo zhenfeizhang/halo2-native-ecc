@@ -8,7 +8,6 @@ use halo2_proofs::plonk::Error;
 
 use crate::chip::ECChip;
 use crate::config::ECConfig;
-use crate::util::leak;
 use crate::AssignedECPoint;
 
 #[cfg(test)]
@@ -47,16 +46,6 @@ pub trait NativeECOps<F: Field> {
         offset: &mut usize,
     ) -> Result<Self::AssignedECPoint, Error>;
 
-    /// For an input pair (x, y), checks if the point is on curve.
-    /// Return boolean.
-    fn is_on_curve(
-        &self,
-        region: &mut Region<F>,
-        config: &Self::Config,
-        p: &Self::AssignedECPoint,
-        offset: &mut usize,
-    ) -> Result<AssignedCell<F, F>, Error>;
-
     /// For an input pair (x, y), enforces the point is on curve.
     fn enforce_on_curve(
         &self,
@@ -64,10 +53,7 @@ pub trait NativeECOps<F: Field> {
         config: &Self::Config,
         p: &Self::AssignedECPoint,
         offset: &mut usize,
-    ) -> Result<(), Error> {
-        let res = self.is_on_curve(region, config, p, offset)?;
-        region.constrain_constant(res.cell(), F::ZERO)
-    }
+    ) -> Result<(), Error>;
 
     /// Return p3 = p1 + p2.
     /// Also enforces p1 and p2 are on curve.
@@ -178,31 +164,18 @@ where
         Ok(Self::AssignedECPoint::new(x, y))
     }
 
-    /// For an input pair (x, y), checks if the point is on curve.
-    /// Return boolean.
-    fn is_on_curve(
+    /// For an input pair (x, y), enforces the point is on curve.
+    /// The point must locate at (offset - 1) row
+    fn enforce_on_curve(
         &self,
         region: &mut Region<F>,
         config: &Self::Config,
-        p: &Self::AssignedECPoint,
+        _p: &Self::AssignedECPoint,
         offset: &mut usize,
-    ) -> Result<AssignedCell<F, F>, Error> {
+    ) -> Result<(), Error>{
         //  | is on curve | 0  | 1  | y1^2 = x1^3 - 17
-        let x = leak(&p.x.value());
-        let y = leak(&p.y.value());
-        let r = x * x * x - y * y + C::b();
-
-        // use column a to store the result; padd column b with 0
-        let r = region.assign_advice(|| "is_on_curve", config.a, *offset, || Value::known(r))?;
-        region.assign_advice(
-            || "is_on_curve",
-            config.b,
-            *offset,
-            || Value::known(F::ZERO),
-        )?;
-        config.q2.enable(region, *offset - 1)?;
-        *offset += 1;
-        Ok(r)
+        config.q2.enable(region, *offset-1)?;
+        Ok(())
     }
 
     /// Return p3 = p1 + p2.

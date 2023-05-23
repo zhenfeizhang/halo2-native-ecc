@@ -90,9 +90,8 @@ where
 
         let a0 = meta.query_advice(self.a, Rotation::cur());
         let b0 = meta.query_advice(self.b, Rotation::cur());
-        let a1 = meta.query_advice(self.a, Rotation::next());
         // (1 - q1) * q2 * (a^3 - b^2 - 17) == c
-        a0.clone() * a0.clone() * a0 - b0.clone() * b0 - a1 + curve_param_b_expr
+        a0.clone() * a0.clone() * a0 - b0.clone() * b0 + curve_param_b_expr
     }
 
     /// partial bit decom
