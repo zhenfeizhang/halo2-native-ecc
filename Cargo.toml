@@ -6,5 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_01_20" }
+halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_04_20" }
+grumpkin = { git = "https://github.com/zhenfeizhang/grumpkin", branch = "halo2curve-v0.3.2" }
 ark-std = { version = "0.4.0", features = ["print-trace"] }
