@@ -4,8 +4,8 @@
 
 mod chip;
 mod config;
+mod ec_gates;
 mod ec_structs;
-mod gates;
 #[cfg(test)]
 mod tests;
 mod util;
@@ -122,7 +122,7 @@ pub trait NativeECOps<F: Field> {
         config: &Self::Config,
         s: &<Self::ECPoint as CurveAffine>::ScalarExt,
         offset: &mut usize,
-    ) ->Result<Vec<AssignedCell<F, F>>, Error>;
+    ) -> Result<Vec<AssignedCell<F, F>>, Error>;
 
     fn mul_assigned_point(
         &self,
@@ -132,6 +132,33 @@ pub trait NativeECOps<F: Field> {
         s: &<Self::ECPoint as CurveAffine>::ScalarExt,
         offset: &mut usize,
     ) -> Result<Self::AssignedECPoint, Error>;
+
+    /// summation
+    fn summation(
+        &self,
+        region: &mut Region<F>,
+        config: &Self::Config,
+        inputs: &[F],
+        offset: &mut usize,
+    ) -> Result<
+        (
+            Vec<AssignedCell<F, F>>, // cells allocated for inputs
+            AssignedCell<F, F>,      // cells allocated for sum
+        ),
+        Error,
+    >;
+
+    /// Input x1, y1, x2, y2, x3, y3
+    /// Assert that
+    /// - x3 = x1 + y1 + x2 + y2 + y3
+    /// - x1, y1, x2, y2 are all binary
+    fn partial_bit_decomp(
+        &self,
+        region: &mut Region<F>,
+        config: &Self::Config,
+        inputs: &[F],
+        offset: &mut usize,
+    ) -> Result<Vec<AssignedCell<F, F>>, Error>;
 
     /// Pad the row with empty cells.
     fn pad(

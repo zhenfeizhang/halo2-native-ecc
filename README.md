@@ -9,7 +9,7 @@ The gate configuration is:
 ----------- | -- | -- | -------------
      ec add | 1  | 0  | (x1, y1), (x2, y2) and (x3, -y3) are on a same line
   ec double | 1  | 1  | (x1, y1) and (x3, -y3) are on a tangential line of the curve
-is on curve | 1  | 2  | y1^2 = x1^3 - 17
+is on curve | 0  | 1  | y1^2 = x1^3 - 17
   summation | 0  | 1  | 
 ```
 ## Addition

@@ -46,7 +46,7 @@ impl Circuit<Fq> for ECTestCircuit {
             || "test ec circuit",
             |mut region| {
                 let mut offset = 0;
-                // unit testing: `load private unchecked`, then `enforce is on curve`
+                // unit test: `load private unchecked`, then `enforce is on curve`
                 let _p1 = {
                     let p1 = ec_chip.load_private_unchecked(
                         &mut region,
@@ -57,12 +57,12 @@ impl Circuit<Fq> for ECTestCircuit {
                     ec_chip.enforce_on_curve(&mut region, &config, &p1, &mut offset)?;
                     p1
                 };
-                // unit testing: load private
+                // unit test: load private
                 let _p2 = ec_chip.load_private(&mut region, &config, &self.p2, &mut offset)?;
                 let p3 = ec_chip.load_private(&mut region, &config, &self.p3, &mut offset)?;
                 let p4 = ec_chip.load_private(&mut region, &config, &self.p4, &mut offset)?;
 
-                // unit testing: point addition
+                // unit test: point addition
                 {
                     let p1 = ec_chip.load_private_unchecked(
                         &mut region,
@@ -83,7 +83,7 @@ impl Circuit<Fq> for ECTestCircuit {
                     region.constrain_equal(p3.y.cell(), p3_rec.y.cell())?;
                 }
 
-                // unit testing: point addition from witnesses
+                // unit test: point addition from witnesses
                 {
                     let p3_rec = ec_chip.add_points(
                         &mut region,
@@ -97,7 +97,7 @@ impl Circuit<Fq> for ECTestCircuit {
                     region.constrain_equal(p3.y.cell(), p3_rec.y.cell())?;
                 }
 
-                // unit testing: point doubling
+                // unit test: point doubling
                 {
                     let p1 = ec_chip.load_private_unchecked(
                         &mut region,
@@ -110,6 +110,24 @@ impl Circuit<Fq> for ECTestCircuit {
 
                     region.constrain_equal(p4.x.cell(), p4_rec.x.cell())?;
                     region.constrain_equal(p4.y.cell(), p4_rec.y.cell())?;
+                }
+
+                // unit test: partial bit decompose
+                {
+                    let inputs = [
+                        Fq::one(),
+                        Fq::zero(),
+                        Fq::zero(),
+                        Fq::one(),
+                        Fq::from(8),
+                        Fq::from(10),
+                    ];
+                    let _cells = ec_chip.partial_bit_decomp(
+                        &mut region,
+                        &config,
+                        inputs.as_ref(),
+                        &mut offset,
+                    )?;
                 }
 
                 // pad the last two rows

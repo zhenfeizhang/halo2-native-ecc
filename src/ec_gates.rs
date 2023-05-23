@@ -167,10 +167,10 @@ where
         config: &Self::Config,
         s: &<Self::ECPoint as CurveAffine>::ScalarExt,
         offset: &mut usize,
-    ) ->Result<Vec<AssignedCell<F, F>>, Error>{
+    ) -> Result<Vec<AssignedCell<F, F>>, Error> {
         let mut res = vec![];
-        
 
+        // let bits = 
 
         Ok(res)
     }
@@ -182,12 +182,113 @@ where
         p: &Self::AssignedECPoint,
         s: &<Self::ECPoint as CurveAffine>::ScalarExt,
         offset: &mut usize,
-    ) -> Result<Self::AssignedECPoint, Error>{
-
-
+    ) -> Result<Self::AssignedECPoint, Error> {
         todo!();
     }
 
+    /// Input x1, y1, x2, y2, x3, y3
+    /// Assert that
+    /// - x3 = x1 + y1 + x2 + y2 + y3
+    /// - x1, y1, x2, y2 are all binary
+    fn partial_bit_decomp(
+        &self,
+        region: &mut Region<F>,
+        config: &Self::Config,
+        inputs: &[F],
+        offset: &mut usize,
+    ) -> Result<Vec<AssignedCell<F, F>>, Error> {
+        assert_eq!(inputs.len(), 6, "input length is not 6");
+        let mut res = vec![];
+        config.q_ec_disabled.enable(region, *offset)?;
+        res.push(region.assign_advice(|| "x0", config.a, *offset, || Value::known(inputs[0]))?);
+        res.push(region.assign_advice(|| "y0", config.b, *offset, || Value::known(inputs[1]))?);
+        res.push(region.assign_advice(
+            || "x1",
+            config.a,
+            *offset + 1,
+            || Value::known(inputs[2]),
+        )?);
+        res.push(region.assign_advice(
+            || "y1",
+            config.b,
+            *offset + 1,
+            || Value::known(inputs[3]),
+        )?);
+        res.push(region.assign_advice(
+            || "x2",
+            config.a,
+            *offset + 2,
+            || Value::known(inputs[4]),
+        )?);
+        res.push(region.assign_advice(
+            || "y2",
+            config.b,
+            *offset + 2,
+            || Value::known(inputs[5]),
+        )?);
+
+        *offset += 3;
+        Ok(res)
+    }
+
+    /// summation
+    fn summation(
+        &self,
+        region: &mut Region<F>,
+        config: &Self::Config,
+        inputs: &[F],
+        offset: &mut usize,
+    ) -> Result<
+        (
+            Vec<AssignedCell<F, F>>, // cells allocated for inputs
+            AssignedCell<F, F>,      // cells allocated for sum
+        ),
+        Error,
+    > {
+        // let mut res = vec![];
+
+        // for chunk in inputs.chunks(5) {
+        //     config.q_ec_disabled.enable(region, *offset)?;
+
+        //     let chunk_sum: F = chunk.iter().sum();
+        //     res.push(region.assign_advice(
+        //         || "x0",
+        //         config.a,
+        //         *offset,
+        //         || Value::known(chunk[0]),
+        //     )?);
+        //     res.push(region.assign_advice(
+        //         || "x1",
+        //         config.b,
+        //         *offset,
+        //         || Value::known(chunk[1]),
+        //     )?);
+        //     res.push(region.assign_advice(
+        //         || "x2",
+        //         config.a,
+        //         *offset + 1,
+        //         || Value::known(chunk[2]),
+        //     )?);
+        //     res.push(region.assign_advice(
+        //         || "x3",
+        //         config.b,
+        //         *offset + 1,
+        //         || Value::known(chunk[3]),
+        //     )?);
+        //     res.push(region.assign_advice(
+        //         || "x4",
+        //         config.a,
+        //         *offset + 2,
+        //         || Value::known(chunk[4]),
+        //     )?);
+        //     region.assign_advice(|| "sum", config.b, *offset + 2, || Value::known(chunk_sum))?;
+        //     *offset += 3;
+        // }
+
+        todo!()
+
+        // Ok(res)
+    }
 
     /// Pad the row with empty cells.
     fn pad(
@@ -205,3 +306,4 @@ where
         Ok(())
     }
 }
+
