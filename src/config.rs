@@ -58,8 +58,7 @@ where
         // | x2 | y2 |
         // | x3 | y3 |
 
-        (a2 - a0.clone()) * (b1 - b0.clone())
-            + (a1 - a0) * (b2 + b0)
+        (a2 - a0.clone()) * (b1 - b0.clone()) + (a1 - a0) * (b2 + b0)
     }
 
     /// (x1, y1) and (x3, -y3) are on a tangential line of the curve
@@ -80,8 +79,7 @@ where
         // | x1 | y1 |
         // | x3 | y3 |
 
-        two * b0.clone() * (b1 + b0)
-            + (three * a0.clone() * a0.clone()) * (a1 - a0)
+        two * b0.clone() * (b1 + b0) + (three * a0.clone() * a0.clone()) * (a1 - a0)
     }
 
     /// (x1, y1) is on curve
@@ -94,8 +92,7 @@ where
         let b0 = meta.query_advice(self.b, Rotation::cur());
         let a1 = meta.query_advice(self.a, Rotation::next());
         // (1 - q1) * q2 * (a^3 - b^2 - 17) == c
-        a0.clone() * a0.clone() * a0 - b0.clone() * b0 - a1
-            + curve_param_b_expr
+        a0.clone() * a0.clone() * a0 - b0.clone() * b0 - a1 + curve_param_b_expr
     }
 
     /// partial bit decom

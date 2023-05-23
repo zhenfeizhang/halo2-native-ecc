@@ -10,7 +10,146 @@ use crate::chip::ECChip;
 use crate::config::ECConfig;
 use crate::util::leak;
 use crate::AssignedECPoint;
-use crate::NativeECOps;
+
+#[cfg(test)]
+mod tests;
+
+pub trait NativeECOps<F: Field> {
+    type Config;
+    type ECPoint: CurveAffine;
+    type AssignedECPoint;
+
+    /// Loads an ecpoint (x, y) into the circuit as a private input.
+    /// Constraints (x, y) is on curve.
+    ///
+    /// Will allocate the (x, y) to columns (a, b); and use column c to enforce point is on curve
+    fn load_private_point(
+        &self,
+        region: &mut Region<F>,
+        config: &Self::Config,
+        p: &Self::ECPoint,
+        offset: &mut usize,
+    ) -> Result<Self::AssignedECPoint, Error> {
+        let p = self.load_private_point_unchecked(region, config, p, offset)?;
+        self.enforce_on_curve(region, config, &p, offset)?;
+        Ok(p)
+    }
+
+    /// Loads a pair (x, y) into the circuit as a private input.
+    /// Do not constraint (x, y) is on curve.
+    ///
+    /// Will allocate the (x, y) to columns (a, b)
+    fn load_private_point_unchecked(
+        &self,
+        region: &mut Region<F>,
+        config: &Self::Config,
+        p: &Self::ECPoint,
+        offset: &mut usize,
+    ) -> Result<Self::AssignedECPoint, Error>;
+
+    /// For an input pair (x, y), checks if the point is on curve.
+    /// Return boolean.
+    fn is_on_curve(
+        &self,
+        region: &mut Region<F>,
+        config: &Self::Config,
+        p: &Self::AssignedECPoint,
+        offset: &mut usize,
+    ) -> Result<AssignedCell<F, F>, Error>;
+
+    /// For an input pair (x, y), enforces the point is on curve.
+    fn enforce_on_curve(
+        &self,
+        region: &mut Region<F>,
+        config: &Self::Config,
+        p: &Self::AssignedECPoint,
+        offset: &mut usize,
+    ) -> Result<(), Error> {
+        let res = self.is_on_curve(region, config, p, offset)?;
+        region.constrain_constant(res.cell(), F::ZERO)
+    }
+
+    /// Return p3 = p1 + p2.
+    /// Also enforces p1 and p2 are on curve.
+    fn add_points(
+        &self,
+        region: &mut Region<F>,
+        config: &Self::Config,
+        p1: &Self::ECPoint,
+        p2: &Self::ECPoint,
+        offset: &mut usize,
+    ) -> Result<Self::AssignedECPoint, Error>;
+
+    /// Return p3 = p1 + p2
+    fn add_assigned_points(
+        &self,
+        region: &mut Region<F>,
+        config: &Self::Config,
+        p1: &Self::AssignedECPoint,
+        p2: &Self::AssignedECPoint,
+        offset: &mut usize,
+    ) -> Result<Self::AssignedECPoint, Error>;
+
+    /// Return p2 = p1 + p1
+    /// Also enforces p1 is on curve.
+    fn double_point(
+        &self,
+        region: &mut Region<F>,
+        config: &Self::Config,
+        p1: &Self::ECPoint,
+        offset: &mut usize,
+    ) -> Result<Self::AssignedECPoint, Error>;
+
+    /// Return p2 = p1 + p1
+    fn double_assigned_point(
+        &self,
+        region: &mut Region<F>,
+        config: &Self::Config,
+        p1: &Self::AssignedECPoint,
+        offset: &mut usize,
+    ) -> Result<Self::AssignedECPoint, Error>;
+
+    /// Decompose a scalar into a vector of boolean Cells
+    fn decompose_scalar(
+        &self,
+        region: &mut Region<F>,
+        config: &Self::Config,
+        s: &<Self::ECPoint as CurveAffine>::ScalarExt,
+        offset: &mut usize,
+    ) -> Result<Vec<AssignedCell<F, F>>, Error>;
+
+    fn mul_assigned_point(
+        &self,
+        region: &mut Region<F>,
+        config: &Self::Config,
+        p: &Self::AssignedECPoint,
+        s: &<Self::ECPoint as CurveAffine>::ScalarExt,
+        offset: &mut usize,
+    ) -> Result<Self::AssignedECPoint, Error>;
+
+    /// summation
+    fn summation(
+        &self,
+        region: &mut Region<F>,
+        config: &Self::Config,
+        inputs: &[F],
+        offset: &mut usize,
+    ) -> Result<
+        (
+            Vec<AssignedCell<F, F>>, // cells allocated for inputs
+            AssignedCell<F, F>,      // cells allocated for sum
+        ),
+        Error,
+    >;
+
+    /// Pad the row with empty cells.
+    fn pad(
+        &self,
+        region: &mut Region<F>,
+        config: &Self::Config,
+        offset: &mut usize,
+    ) -> Result<(), Error>;
+}
 
 impl<C, F> NativeECOps<F> for ECChip<C, F>
 where
@@ -25,7 +164,7 @@ where
     /// Do not constraint (x, y) is on curve.
     ///
     /// Will allocate the (x, y) to columns (a, b)
-    fn load_private_unchecked(
+    fn load_private_point_unchecked(
         &self,
         region: &mut Region<F>,
         config: &Self::Config,
@@ -78,10 +217,10 @@ where
     ) -> Result<Self::AssignedECPoint, Error> {
         // checking if a point is on curve takes 2 continuous rows, therefore we need
         // to copy the cells for additions
-        let p1_checked = self.load_private(region, config, p1, offset)?;
-        let p2_checked = self.load_private(region, config, p2, offset)?;
-        let p1_unchecked = self.load_private_unchecked(region, config, p1, offset)?;
-        let p2_unchecked = self.load_private_unchecked(region, config, p2, offset)?;
+        let p1_checked = self.load_private_point(region, config, p1, offset)?;
+        let p2_checked = self.load_private_point(region, config, p2, offset)?;
+        let p1_unchecked = self.load_private_point_unchecked(region, config, p1, offset)?;
+        let p2_unchecked = self.load_private_point_unchecked(region, config, p2, offset)?;
 
         region.constrain_equal(p1_checked.x.cell(), p1_unchecked.x.cell())?;
         region.constrain_equal(p1_checked.y.cell(), p1_unchecked.y.cell())?;
@@ -116,7 +255,7 @@ where
         let p2 = p2.witness();
         let p3 = (p1 + p2).to_affine();
 
-        let p3 = self.load_private_unchecked(region, config, &p3, offset)?;
+        let p3 = self.load_private_point_unchecked(region, config, &p3, offset)?;
         self.enforce_on_curve(region, config, &p3, offset)?;
         Ok(p3)
     }
@@ -132,8 +271,8 @@ where
     ) -> Result<Self::AssignedECPoint, Error> {
         // checking if a point is on curve takes 2 continuous rows, therefore we need
         // to copy the cells for doubling
-        let p1_checked = self.load_private(region, config, p1, offset)?;
-        let p1_unchecked = self.load_private_unchecked(region, config, p1, offset)?;
+        let p1_checked = self.load_private_point(region, config, p1, offset)?;
+        let p1_unchecked = self.load_private_point_unchecked(region, config, p1, offset)?;
 
         region.constrain_equal(p1_checked.x.cell(), p1_unchecked.x.cell())?;
         region.constrain_equal(p1_checked.y.cell(), p1_unchecked.y.cell())?;
@@ -155,7 +294,7 @@ where
         config.q2.enable(region, *offset - 1)?;
         let p1 = p1.witness();
         let p2 = (p1 + p1).to_affine();
-        let p2 = self.load_private_unchecked(region, config, &p2, offset)?;
+        let p2 = self.load_private_point_unchecked(region, config, &p2, offset)?;
         self.enforce_on_curve(region, config, &p2, offset)?;
         Ok(p2)
     }
@@ -170,7 +309,7 @@ where
     ) -> Result<Vec<AssignedCell<F, F>>, Error> {
         let mut res = vec![];
 
-        // let bits = 
+        // let bits =
 
         Ok(res)
     }
@@ -184,51 +323,6 @@ where
         offset: &mut usize,
     ) -> Result<Self::AssignedECPoint, Error> {
         todo!();
-    }
-
-    /// Input x1, y1, x2, y2, x3, y3
-    /// Assert that
-    /// - x3 = x1 + y1 + x2 + y2 + y3
-    /// - x1, y1, x2, y2 are all binary
-    fn partial_bit_decomp(
-        &self,
-        region: &mut Region<F>,
-        config: &Self::Config,
-        inputs: &[F],
-        offset: &mut usize,
-    ) -> Result<Vec<AssignedCell<F, F>>, Error> {
-        assert_eq!(inputs.len(), 6, "input length is not 6");
-        let mut res = vec![];
-        config.q_ec_disabled.enable(region, *offset)?;
-        res.push(region.assign_advice(|| "x0", config.a, *offset, || Value::known(inputs[0]))?);
-        res.push(region.assign_advice(|| "y0", config.b, *offset, || Value::known(inputs[1]))?);
-        res.push(region.assign_advice(
-            || "x1",
-            config.a,
-            *offset + 1,
-            || Value::known(inputs[2]),
-        )?);
-        res.push(region.assign_advice(
-            || "y1",
-            config.b,
-            *offset + 1,
-            || Value::known(inputs[3]),
-        )?);
-        res.push(region.assign_advice(
-            || "x2",
-            config.a,
-            *offset + 2,
-            || Value::known(inputs[4]),
-        )?);
-        res.push(region.assign_advice(
-            || "y2",
-            config.b,
-            *offset + 2,
-            || Value::known(inputs[5]),
-        )?);
-
-        *offset += 3;
-        Ok(res)
     }
 
     /// summation
@@ -306,4 +400,3 @@ where
         Ok(())
     }
 }
-

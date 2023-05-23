@@ -75,16 +75,15 @@ where
         let one = Expression::Constant(F::ONE);
 
         meta.create_gate("native ec", |meta| {
-            // we only care for three operations, configured with the following setup
-            //  |    used for | q_ec_disabled | q1 | q2 | statement
-            //  | ----------- | ------------- | -- | -- | -------------
-            //  |      ec add |       0       | 1  | 0  | (x1, y1), (x2, y2) and (x3, -y3) are on a same line
-            //  |   ec double |       0       | 1  | 1  | (x1, y1) and (x3, -y3) are on a tangential line of the curve
-            //  | is on curve |       0       | 0  | 1  | y1^2 = x1^3 - C::b()
-            //  |   partial   |       1       | 0  | 1  | y3 = x1 + y1 + x2 + y2 + x3 and
-            //  |  decompose  |               |    |    | x1, y1, x2, y2 are all binary
-            //  |         add |       1       | 1  | 0  | a1 = a0 + b0
-            //  |         mul |       1       | 1  | 1  | a1 = a0 * b0 
+            // |   op codes  | cost | q_ec_disabled | q1 | q2 | statement
+            // | ----------- |:----:|:-------------:| -- | -- | -------------
+            // |      ec add |   3  |       0       | 1  | 0  | (x1, y1), (x2, y2) and (x3, -y3) are on a same line
+            // |   ec double |   2  |       0       | 1  | 1  | (x1, y1) and (x3, -y3) are on a tangential line of the curve
+            // | is on curve |   2  |       0       | 0  | 1  | y1^2 = x1^3 - C::b()
+            // |     partial |   3  |       1       | 0  | 1  | y3 = x1 + y1 + x2 + y2 + x3 and
+            // |   decompose |      |               |    |    | x1, y1, x2, y2 are all binary
+            // |         add |   2  |       1       | 1  | 0  | a1 = a0 + b0
+            // |         mul |   2  |       1       | 1  | 1  | a1 = a0 * b0  
 
             let q1 = meta.query_selector(config.q1);
             let q2 = meta.query_selector(config.q2);
@@ -99,19 +98,18 @@ where
 
             vec![
                 //  |      ec add |       0       | 1  | 0  |
-                ec_add_gate * q1.clone() * (one.clone() - q2.clone())
+                ec_add_gate * (one.clone() - q_ec_disabled.clone()) * q1.clone() * (one.clone() - q2.clone())
                 //  |   ec double |       0       | 1  | 1  |
-                    + ec_double_gate * q1.clone() * q2.clone()
+                    + ec_double_gate * (one.clone() - q_ec_disabled.clone()) * q1.clone() * q2.clone()
                 //  | is on curve |       0       | 0  | 1  |
-                    + on_curve_gate * (one.clone() - q1.clone()) * q2.clone()
+                    + on_curve_gate * (one.clone() - q_ec_disabled.clone()) * (one.clone() - q1.clone()) * q2.clone()
                 //  |   partial   |       1       | 0  | 1  | 
                 //  |  decompose  |               |    |    |
                     + partial_bit_decom_gate * q_ec_disabled.clone() * (one.clone() - q1.clone()) * q2.clone()
                 //  |         add |       1       | 1  | 0  |  
-                    + add_gate * q_ec_disabled.clone() * (one.clone() - q1.clone()) * q2.clone()
+                    + add_gate * q_ec_disabled.clone() * q1.clone() * (one.clone() - q2.clone())
                 //  |         mul |       1       | 1  | 1  | 
-                    + mul_gate * q_ec_disabled * (one.clone() - q1) * (one - q2),
-
+                    + mul_gate * q_ec_disabled * q1 * q2,
                 ]
         });
 

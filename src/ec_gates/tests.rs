@@ -13,7 +13,7 @@ use halo2_proofs::plonk::Error;
 
 use crate::chip::ECChip;
 use crate::config::ECConfig;
-use crate::NativeECOps;
+use crate::ec_gates::NativeECOps;
 
 #[derive(Default, Debug, Clone, Copy)]
 struct ECTestCircuit {
@@ -48,7 +48,7 @@ impl Circuit<Fq> for ECTestCircuit {
                 let mut offset = 0;
                 // unit test: `load private unchecked`, then `enforce is on curve`
                 let _p1 = {
-                    let p1 = ec_chip.load_private_unchecked(
+                    let p1 = ec_chip.load_private_point_unchecked(
                         &mut region,
                         &config,
                         &self.p1,
@@ -58,19 +58,20 @@ impl Circuit<Fq> for ECTestCircuit {
                     p1
                 };
                 // unit test: load private
-                let _p2 = ec_chip.load_private(&mut region, &config, &self.p2, &mut offset)?;
-                let p3 = ec_chip.load_private(&mut region, &config, &self.p3, &mut offset)?;
-                let p4 = ec_chip.load_private(&mut region, &config, &self.p4, &mut offset)?;
+                let _p2 =
+                    ec_chip.load_private_point(&mut region, &config, &self.p2, &mut offset)?;
+                let p3 = ec_chip.load_private_point(&mut region, &config, &self.p3, &mut offset)?;
+                let p4 = ec_chip.load_private_point(&mut region, &config, &self.p4, &mut offset)?;
 
                 // unit test: point addition
                 {
-                    let p1 = ec_chip.load_private_unchecked(
+                    let p1 = ec_chip.load_private_point_unchecked(
                         &mut region,
                         &config,
                         &self.p1,
                         &mut offset,
                     )?;
-                    let p2 = ec_chip.load_private_unchecked(
+                    let p2 = ec_chip.load_private_point_unchecked(
                         &mut region,
                         &config,
                         &self.p2,
@@ -99,7 +100,7 @@ impl Circuit<Fq> for ECTestCircuit {
 
                 // unit test: point doubling
                 {
-                    let p1 = ec_chip.load_private_unchecked(
+                    let p1 = ec_chip.load_private_point_unchecked(
                         &mut region,
                         &config,
                         &self.p1,
@@ -110,24 +111,6 @@ impl Circuit<Fq> for ECTestCircuit {
 
                     region.constrain_equal(p4.x.cell(), p4_rec.x.cell())?;
                     region.constrain_equal(p4.y.cell(), p4_rec.y.cell())?;
-                }
-
-                // unit test: partial bit decompose
-                {
-                    let inputs = [
-                        Fq::one(),
-                        Fq::zero(),
-                        Fq::zero(),
-                        Fq::one(),
-                        Fq::from(8),
-                        Fq::from(10),
-                    ];
-                    let _cells = ec_chip.partial_bit_decomp(
-                        &mut region,
-                        &config,
-                        inputs.as_ref(),
-                        &mut offset,
-                    )?;
                 }
 
                 // pad the last two rows
