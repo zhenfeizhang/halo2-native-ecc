@@ -11,6 +11,18 @@ pub(crate) fn leak<T: Copy + Default>(a: &Value<&T>) -> T {
 
 /// Split a scalar field elements into high and low and
 /// store the high and low in base field.
+pub(crate) fn field_decompose_u128<S>(e: &S) -> (u128, u128)
+where
+    S: PrimeField<Repr = [u8; 32]>,
+{
+    let repr = e.to_repr();
+    let high = u128::from_le_bytes(repr[16..].try_into().unwrap());
+    let low = u128::from_le_bytes(repr[..16].try_into().unwrap());
+    (high, low)
+}
+
+/// Split a scalar field elements into high and low and
+/// store the high and low in base field.
 pub(crate) fn field_decompose<F, S>(e: &S) -> (F, F)
 where
     F: PrimeField,

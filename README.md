@@ -1,7 +1,8 @@
-Native field arithmetics for SW curves
+Native field curve arithmetics
 ---
 
 This repo implements native field arithmetics for short Weierstrass curves, using a nice trick from [Tianyi Liu](https://liutianyi.site/).
+It is efficient and is __almost generic__ for both short Weierstrass curves and twisted Edward curves.
 
 # Gate config
 The gate configuration is:

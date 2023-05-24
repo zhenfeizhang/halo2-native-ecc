@@ -1,7 +1,11 @@
+use std::ops::Mul;
+
 use ark_std::test_rng;
 use grumpkin::Fq;
+use grumpkin::Fr;
 use grumpkin::G1Affine;
 use grumpkin::G1;
+use halo2_proofs::arithmetic::Field;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::circuit::SimpleFloorPlanner;
 use halo2_proofs::dev::MockProver;
@@ -14,9 +18,11 @@ use halo2_proofs::plonk::Error;
 use crate::chip::ECChip;
 use crate::config::ECConfig;
 use crate::ec_gates::NativeECOps;
+use crate::util::field_decompose;
 
 #[derive(Default, Debug, Clone, Copy)]
 struct ECTestCircuit {
+    s: Fr,
     p1: G1Affine,
     p2: G1Affine,
     p3: G1Affine, // p1 + p2
@@ -113,6 +119,25 @@ impl Circuit<Fq> for ECTestCircuit {
                     region.constrain_equal(p4.y.cell(), p4_rec.y.cell())?;
                 }
 
+                // unit test: scalar decomposition
+                {
+                    let _scalar_cells =
+                        ec_chip.decompose_scalar(&mut region, &config, &self.s, &mut offset)?;
+                }
+
+                // unit test: curve mul
+                {
+                    println!("curve point: {:?}", self.p1.mul(self.s).to_affine());
+
+                    let _scalar_cells = ec_chip.mul_assigned_point(
+                        &mut region,
+                        &config,
+                        &self.p1,
+                        &self.s,
+                        &mut offset,
+                    )?;
+                }
+
                 // pad the last two rows
                 ec_chip.pad(&mut region, &config, &mut offset)?;
 
@@ -129,13 +154,14 @@ fn test_ec_ops() {
     let k = 10;
 
     let mut rng = test_rng();
+    let s = Fr::random(&mut rng);
     let p1 = G1::random(&mut rng).to_affine();
     let p2 = G1::random(&mut rng).to_affine();
     let p3 = (p1 + p2).to_affine();
     let p4 = (p1 + p1).to_affine();
 
     {
-        let circuit = ECTestCircuit { p1, p2, p3, p4 };
+        let circuit = ECTestCircuit { s, p1, p2, p3, p4 };
 
         let prover = MockProver::run(k, &circuit, vec![]).unwrap();
         prover.assert_satisfied();
@@ -144,7 +170,7 @@ fn test_ec_ops() {
     // error case: add not equal
     {
         let p3 = (p1 + p1).to_affine();
-        let circuit = ECTestCircuit { p1, p2, p3, p4 };
+        let circuit = ECTestCircuit { s, p1, p2, p3, p4 };
 
         let prover = MockProver::run(k, &circuit, vec![]).unwrap();
         assert!(prover.verify().is_err());
@@ -153,7 +179,7 @@ fn test_ec_ops() {
     // error case: double not equal
     {
         let p4 = (p1 + p2).to_affine();
-        let circuit = ECTestCircuit { p1, p2, p3, p4 };
+        let circuit = ECTestCircuit { s, p1, p2, p3, p4 };
 
         let prover = MockProver::run(k, &circuit, vec![]).unwrap();
         assert!(prover.verify().is_err());

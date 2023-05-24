@@ -270,7 +270,6 @@ where
         // we assert the decomposition via 32 calls of partial decomp
         // each call we absorb 4 bits
         for i in 0..32 {
-            
             config.q_ec_disabled.enable(region, *offset)?;
             config.q2.enable(region, *offset)?;
 
@@ -338,13 +337,7 @@ where
         }
 
         // format the result in little endian format
-        let res = res
-            .as_slice()
-            .chunks(8)
-            .rev()
-            .flatten()
-            .cloned()
-            .collect::<Vec<_>>();
+        res.reverse();
 
         // for (i, e) in res.iter().enumerate() {
         //     println!("{} {:?}", i, e.value());

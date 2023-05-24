@@ -2,20 +2,30 @@ use halo2_proofs::arithmetic::Field;
 use halo2_proofs::circuit::AssignedCell;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::circuit::Value;
+use halo2_proofs::halo2curves::ff::PrimeField;
 use halo2_proofs::halo2curves::group::Curve;
 use halo2_proofs::halo2curves::CurveAffine;
 use halo2_proofs::plonk::Error;
 
 use crate::chip::ECChip;
 use crate::config::ECConfig;
+use crate::util::field_decompose;
+use crate::util::field_decompose_u128;
+use crate::util::leak;
+use crate::ArithOps;
 use crate::AssignedECPoint;
 
 #[cfg(test)]
 mod tests;
 
-pub trait NativeECOps<F: Field> {
+pub trait NativeECOps<C, F>
+where
+    // the embedded curve, i.e., Grumpkin
+    C: CurveAffine<Base = F>,
+    // the field for circuit, i.e., BN::Scalar
+    F: PrimeField,
+{
     type Config;
-    type ECPoint: CurveAffine;
     type AssignedECPoint;
 
     /// Loads an ecpoint (x, y) into the circuit as a private input.
@@ -26,7 +36,7 @@ pub trait NativeECOps<F: Field> {
         &self,
         region: &mut Region<F>,
         config: &Self::Config,
-        p: &Self::ECPoint,
+        p: &C,
         offset: &mut usize,
     ) -> Result<Self::AssignedECPoint, Error> {
         let p = self.load_private_point_unchecked(region, config, p, offset)?;
@@ -42,7 +52,7 @@ pub trait NativeECOps<F: Field> {
         &self,
         region: &mut Region<F>,
         config: &Self::Config,
-        p: &Self::ECPoint,
+        p: &C,
         offset: &mut usize,
     ) -> Result<Self::AssignedECPoint, Error>;
 
@@ -61,8 +71,8 @@ pub trait NativeECOps<F: Field> {
         &self,
         region: &mut Region<F>,
         config: &Self::Config,
-        p1: &Self::ECPoint,
-        p2: &Self::ECPoint,
+        p1: &C,
+        p2: &C,
         offset: &mut usize,
     ) -> Result<Self::AssignedECPoint, Error>;
 
@@ -82,7 +92,7 @@ pub trait NativeECOps<F: Field> {
         &self,
         region: &mut Region<F>,
         config: &Self::Config,
-        p1: &Self::ECPoint,
+        p1: &C,
         offset: &mut usize,
     ) -> Result<Self::AssignedECPoint, Error>;
 
@@ -96,37 +106,29 @@ pub trait NativeECOps<F: Field> {
     ) -> Result<Self::AssignedECPoint, Error>;
 
     /// Decompose a scalar into a vector of boolean Cells
-    fn decompose_scalar(
+    fn decompose_scalar<S>(
         &self,
         region: &mut Region<F>,
         config: &Self::Config,
-        s: &<Self::ECPoint as CurveAffine>::ScalarExt,
+        s: &C::ScalarExt,
         offset: &mut usize,
-    ) -> Result<Vec<AssignedCell<F, F>>, Error>;
+    ) -> Result<Vec<AssignedCell<F, F>>, Error>
+    where
+        S: PrimeField<Repr = [u8; 32]>,
+        C: CurveAffine<ScalarExt = S>;
 
-    fn mul_assigned_point(
+    /// Point mul via double-then-add method
+    fn mul_assigned_point<S>(
         &self,
         region: &mut Region<F>,
         config: &Self::Config,
-        p: &Self::AssignedECPoint,
-        s: &<Self::ECPoint as CurveAffine>::ScalarExt,
+        p: &C,
+        s: &C::ScalarExt,
         offset: &mut usize,
-    ) -> Result<Self::AssignedECPoint, Error>;
-
-    /// summation
-    fn summation(
-        &self,
-        region: &mut Region<F>,
-        config: &Self::Config,
-        inputs: &[F],
-        offset: &mut usize,
-    ) -> Result<
-        (
-            Vec<AssignedCell<F, F>>, // cells allocated for inputs
-            AssignedCell<F, F>,      // cells allocated for sum
-        ),
-        Error,
-    >;
+    ) -> Result<Self::AssignedECPoint, Error>
+    where
+        S: PrimeField<Repr = [u8; 32]>,
+        C: CurveAffine<ScalarExt = S>;
 
     /// Pad the row with empty cells.
     fn pad(
@@ -137,13 +139,12 @@ pub trait NativeECOps<F: Field> {
     ) -> Result<(), Error>;
 }
 
-impl<C, F> NativeECOps<F> for ECChip<C, F>
+impl<C, F> NativeECOps<C, F> for ECChip<C, F>
 where
     C: CurveAffine<Base = F>,
-    F: Field,
+    F: PrimeField,
 {
     type Config = ECConfig<C, F>;
-    type ECPoint = C;
     type AssignedECPoint = AssignedECPoint<C, F>;
 
     /// Loads a pair (x, y) into the circuit as a private input.
@@ -154,7 +155,7 @@ where
         &self,
         region: &mut Region<F>,
         config: &Self::Config,
-        p: &Self::ECPoint,
+        p: &C,
         offset: &mut usize,
     ) -> Result<Self::AssignedECPoint, Error> {
         let p = p.coordinates().unwrap();
@@ -184,8 +185,8 @@ where
         &self,
         region: &mut Region<F>,
         config: &Self::Config,
-        p1: &Self::ECPoint,
-        p2: &Self::ECPoint,
+        p1: &C,
+        p2: &C,
         offset: &mut usize,
     ) -> Result<Self::AssignedECPoint, Error> {
         // checking if a point is on curve takes 2 continuous rows, therefore we need
@@ -239,7 +240,7 @@ where
         &self,
         region: &mut Region<F>,
         config: &Self::Config,
-        p1: &Self::ECPoint,
+        p1: &C,
         offset: &mut usize,
     ) -> Result<Self::AssignedECPoint, Error> {
         // checking if a point is on curve takes 2 continuous rows, therefore we need
@@ -273,88 +274,55 @@ where
     }
 
     /// Decompose a scalar into a vector of boolean Cells
-    fn decompose_scalar(
+    fn decompose_scalar<S>(
         &self,
         region: &mut Region<F>,
         config: &Self::Config,
-        s: &<Self::ECPoint as CurveAffine>::ScalarExt,
+        s: &C::ScalarExt,
         offset: &mut usize,
-    ) -> Result<Vec<AssignedCell<F, F>>, Error> {
-        let mut res = vec![];
-
-        // let bits =
-
+    ) -> Result<Vec<AssignedCell<F, F>>, Error>
+    where
+        S: PrimeField<Repr = [u8; 32]>,
+        C: CurveAffine<ScalarExt = S>,
+    {
+        let (high, low) = field_decompose_u128(s);
+        let (low_cells, _res) = self.decompose_u128(region, config, &low, offset)?;
+        let (high_cells, _res) = self.decompose_u128(region, config, &high, offset)?;
+        let res = [low_cells.as_slice(), high_cells.as_slice()].concat();
+        // println!("s: {:?}", s);
+        // for (i, e) in res.iter().enumerate(){
+        //     println!("{} {:?}", i, e.value());
+        // }
         Ok(res)
     }
 
-    fn mul_assigned_point(
+    /// Point mul via double-then-add method
+    // todo: assigned point -> point
+    fn mul_assigned_point<S>(
         &self,
         region: &mut Region<F>,
         config: &Self::Config,
-        p: &Self::AssignedECPoint,
-        s: &<Self::ECPoint as CurveAffine>::ScalarExt,
+        p: &C,
+        s: &C::ScalarExt,
         offset: &mut usize,
-    ) -> Result<Self::AssignedECPoint, Error> {
-        todo!();
-    }
+    ) -> Result<Self::AssignedECPoint, Error>
+    where
+        S: PrimeField<Repr = [u8; 32]>,
+        C: CurveAffine<ScalarExt = S>,
+    {
+        let mut res = C::identity();
+        let bits = self.decompose_scalar(region, config, s, offset)?;
 
-    /// summation
-    fn summation(
-        &self,
-        region: &mut Region<F>,
-        config: &Self::Config,
-        inputs: &[F],
-        offset: &mut usize,
-    ) -> Result<
-        (
-            Vec<AssignedCell<F, F>>, // cells allocated for inputs
-            AssignedCell<F, F>,      // cells allocated for sum
-        ),
-        Error,
-    > {
-        // let mut res = vec![];
+        for b in bits.iter().rev() {
+            res = (res + res).into();
+            if leak(&b.value()) == F::ONE {
+                res = (res + *p).into();
+            }
+        }
+        println!("res {:?}", res);
 
-        // for chunk in inputs.chunks(5) {
-        //     config.q_ec_disabled.enable(region, *offset)?;
-
-        //     let chunk_sum: F = chunk.iter().sum();
-        //     res.push(region.assign_advice(
-        //         || "x0",
-        //         config.a,
-        //         *offset,
-        //         || Value::known(chunk[0]),
-        //     )?);
-        //     res.push(region.assign_advice(
-        //         || "x1",
-        //         config.b,
-        //         *offset,
-        //         || Value::known(chunk[1]),
-        //     )?);
-        //     res.push(region.assign_advice(
-        //         || "x2",
-        //         config.a,
-        //         *offset + 1,
-        //         || Value::known(chunk[2]),
-        //     )?);
-        //     res.push(region.assign_advice(
-        //         || "x3",
-        //         config.b,
-        //         *offset + 1,
-        //         || Value::known(chunk[3]),
-        //     )?);
-        //     res.push(region.assign_advice(
-        //         || "x4",
-        //         config.a,
-        //         *offset + 2,
-        //         || Value::known(chunk[4]),
-        //     )?);
-        //     region.assign_advice(|| "sum", config.b, *offset + 2, || Value::known(chunk_sum))?;
-        //     *offset += 3;
-        // }
-
-        todo!()
-
-        // Ok(res)
+        self.load_private_point(region, config, p, offset)
+        // todo!()
     }
 
     /// Pad the row with empty cells.
