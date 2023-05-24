@@ -55,7 +55,7 @@ pub trait ArithOps<F: Field> {
 
     /// Input x1, y1, x2, y2, x3, y3
     /// Assert that
-    /// - x3 = x1 + y1 + x2 + y2 + y3
+    /// - x3 = x1 + 2y1 + 4x2 + 8y2 + 16y3
     /// - x1, y1, x2, y2 are all binary
     fn partial_bit_decomp(
         &self,
@@ -180,7 +180,7 @@ where
 
     /// Input x1, y1, x2, y2, x3, y3
     /// Assert that
-    /// - x3 = x1 + y1 + x2 + y2 + y3
+    /// - x3 = x1 + 2y1 + 4x2 + 8y2 + 16y3
     /// - x1, y1, x2, y2 are all binary
     fn partial_bit_decomp(
         &self,
@@ -189,10 +189,12 @@ where
         inputs: &[F],
         offset: &mut usize,
     ) -> Result<Vec<AssignedCell<F, F>>, Error> {
+        // |     partial |      1       | 0  | 1  |
         assert_eq!(inputs.len(), 6, "input length is not 6");
 
         let mut res = vec![];
         config.q_ec_disabled.enable(region, *offset)?;
+        config.q2.enable(region, *offset)?;
         res.push(region.assign_advice(|| "x0", config.a, *offset, || Value::known(inputs[0]))?);
         res.push(region.assign_advice(|| "y0", config.b, *offset, || Value::known(inputs[1]))?);
         res.push(region.assign_advice(

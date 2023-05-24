@@ -172,9 +172,9 @@ where
         config: &Self::Config,
         _p: &Self::AssignedECPoint,
         offset: &mut usize,
-    ) -> Result<(), Error>{
+    ) -> Result<(), Error> {
         //  | is on curve | 0  | 1  | y1^2 = x1^3 - 17
-        config.q2.enable(region, *offset-1)?;
+        config.q2.enable(region, *offset - 1)?;
         Ok(())
     }
 

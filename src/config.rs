@@ -95,10 +95,14 @@ where
     }
 
     /// partial bit decom
-    /// - y3 = x1 + y1 + x2 + y2 + x3
+    /// - y3 = x1 + 2y1 + 4x2 + 8y2 + 16x3
     /// - x1, y1, x2, y2 are all binary
     pub(crate) fn partial_bit_decom_gate(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
         let one = Expression::Constant(F::ONE);
+        let two = Expression::Constant(F::from(2));
+        let four = Expression::Constant(F::from(4));
+        let eight = Expression::Constant(F::from(8));
+        let sixteen = Expression::Constant(F::from(16));
 
         let a0 = meta.query_advice(self.a, Rotation::cur());
         let b0 = meta.query_advice(self.b, Rotation::cur());
@@ -107,7 +111,9 @@ where
         let a2 = meta.query_advice(self.a, Rotation(2));
         let b2 = meta.query_advice(self.b, Rotation(2));
 
-        a0.clone() + b0.clone() + a1.clone() + b1.clone() + a2 - b2
+        // y3 = x1 + 2y1 + 4x2 + 8y2 + 16x3
+        a0.clone() + two * b0.clone() + four * a1.clone() + eight * b1.clone() + sixteen * a2 - b2
+        // x1, y1, x2, y2 are all binary
             + a0.clone() * (one.clone() - a0)
             + b0.clone() * (one.clone() - b0)
             + a1.clone() * (one.clone() - a1)

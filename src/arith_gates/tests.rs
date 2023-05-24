@@ -99,20 +99,86 @@ fn test_field_ops() {
     let k = 10;
 
     let mut rng = test_rng();
+
     let f1 = Fq::random(&mut rng);
     let f2 = Fq::random(&mut rng);
     let f3 = f1 + f2;
     let f4 = f1 * f2;
-    let f5 = [
-        Fq::one(),
-        Fq::zero(),
-        Fq::zero(),
-        Fq::one(),
-        f1,
-        f1 + Fq::from(2),
-    ];
-    let circuit = ArithTestCircuit { f1, f2, f3, f4, f5 };
+    {
+        let f5 = [
+            Fq::one(),
+            Fq::zero(),
+            Fq::zero(),
+            Fq::one(),
+            f1,
+            f1 * Fq::from(16) + Fq::from(9),
+        ];
+        let circuit = ArithTestCircuit { f1, f2, f3, f4, f5 };
 
-    let prover = MockProver::run(k, &circuit, vec![]).unwrap();
-    prover.assert_satisfied();
+        let prover = MockProver::run(k, &circuit, vec![]).unwrap();
+        prover.assert_satisfied();
+    }
+
+    // error case: addition fails
+    {
+        let f3 = f1 + f1;
+        let f5 = [
+            Fq::one(),
+            Fq::zero(),
+            Fq::zero(),
+            Fq::one(),
+            f1,
+            f1 * Fq::from(16) + Fq::from(9),
+        ];
+        let circuit = ArithTestCircuit { f1, f2, f3, f4, f5 };
+
+        let prover = MockProver::run(k, &circuit, vec![]).unwrap();
+        assert!(prover.verify().is_err());
+    }
+    // error case: multiplication fails
+    {
+        let f4 = f1 * f1;
+        let f5 = [
+            Fq::one(),
+            Fq::zero(),
+            Fq::zero(),
+            Fq::one(),
+            f1,
+            f1 * Fq::from(16) + Fq::from(9),
+        ];
+        let circuit = ArithTestCircuit { f1, f2, f3, f4, f5 };
+
+        let prover = MockProver::run(k, &circuit, vec![]).unwrap();
+        assert!(prover.verify().is_err());
+    }
+    // error case: not binary
+    {
+        let f5 = [
+            Fq::from(2),
+            Fq::zero(),
+            Fq::zero(),
+            Fq::one(),
+            f1,
+            f1 * Fq::from(16) + Fq::from(10),
+        ];
+        let circuit = ArithTestCircuit { f1, f2, f3, f4, f5 };
+
+        let prover = MockProver::run(k, &circuit, vec![]).unwrap();
+        assert!(prover.verify().is_err());
+    }
+    // error case: sum not equal
+    {
+        let f5 = [
+            Fq::zero(),
+            Fq::zero(),
+            Fq::zero(),
+            Fq::one(),
+            f1,
+            f1 * Fq::from(16) + Fq::from(10),
+        ];
+        let circuit = ArithTestCircuit { f1, f2, f3, f4, f5 };
+
+        let prover = MockProver::run(k, &circuit, vec![]).unwrap();
+        assert!(prover.verify().is_err());
+    }
 }
