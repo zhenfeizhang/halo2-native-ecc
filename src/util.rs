@@ -42,6 +42,19 @@ fn byte_to_le_bits(b: &u8) -> Vec<bool> {
     res
 }
 
+#[inline]
+pub(crate) fn decompose_u128(a: &u128) -> Vec<u64> {
+    a.to_le_bytes()
+        .iter()
+        .flat_map(|x| {
+            byte_to_le_bits(x)
+                .iter()
+                .map(|&x| x as u64)
+                .collect::<Vec<_>>()
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod test {
     use grumpkin::Fq;
@@ -51,6 +64,7 @@ mod test {
     use crate::util::byte_to_le_bits;
     use crate::util::to_le_bits;
 
+    use super::decompose_u128;
     use super::field_decompose;
 
     #[test]
@@ -96,6 +110,11 @@ mod test {
         // println!("{:?}", a);
         // println!("{:?}", high);
         // println!("{:?}", low);
+
+        let a = u128::from_le_bytes([1; 16]);
+        let _bits = decompose_u128(&a);
+        // println!("{0:x?}", a);
+        // println!("{:?}", bits);
         // panic!()
     }
 }

@@ -83,6 +83,14 @@ impl Circuit<Fq> for ArithTestCircuit {
                     )?;
                 }
 
+                // unit test: decompose u128
+                {
+                    let bytes = (0..16).map(|x| x).collect::<Vec<u8>>();
+                    let a = u128::from_le_bytes(bytes.try_into().unwrap());
+                    let _cells =
+                        field_chip.decompose_u128(&mut region, &config, &a, &mut offset)?;
+                }
+
                 // pad the last two rows
                 field_chip.pad(&mut region, &config, &mut offset)?;
 
