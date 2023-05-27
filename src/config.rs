@@ -36,14 +36,16 @@ where
     C: CurveAffine<Base = F>,
     F: PrimeField,
 {
-    /// (x1, y1), (x2, y2) and (x3, -y3) are on a same line
-    pub(crate) fn ec_add_gate(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+    pub(crate) fn conditional_ec_add_gate(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        let one = Expression::Constant(F::ONE);
+
         let a0 = meta.query_advice(self.a, Rotation::cur());
         let b0 = meta.query_advice(self.b, Rotation::cur());
         let a1 = meta.query_advice(self.a, Rotation::next());
         let b1 = meta.query_advice(self.b, Rotation::next());
-        let a2 = meta.query_advice(self.a, Rotation(2));
-        let b2 = meta.query_advice(self.b, Rotation(2));
+        let condition = meta.query_advice(self.a, Rotation(2));
+        let a2 = meta.query_advice(self.a, Rotation(3));
+        let b2 = meta.query_advice(self.b, Rotation(3));
 
         //      (x2-x1)/(y2-y1) = (x3-x1)/(-y3-y1)
         // =>   (x3-x1)(y2-y1) + (x2-x1)(y3+y1) = 0
@@ -57,8 +59,18 @@ where
         // | x1 | y1 |
         // | x2 | y2 |
         // | x3 | y3 |
+        let add =
+            (a2.clone() - a0.clone()) * (b1 - b0.clone()) + (a1 - a0) * (b2.clone() + b0.clone());
 
-        (a2 - a0.clone()) * (b1 - b0.clone()) + (a1 - a0) * (b2 + b0)
+        // Given (x1, y1), (x2, y2)
+        // if condition is true, we return (x1, y1) + (x2, y2)
+        // else we return (x1, y1)
+
+        let a0 = meta.query_advice(self.a, Rotation::cur());
+        let b0 = meta.query_advice(self.b, Rotation::cur());
+        condition.clone() * add
+            + (one.clone() - condition.clone()) * (a2 - a0)
+            + (one - condition) * (b2 - b0)
     }
 
     /// (x1, y1) and (x3, -y3) are on a tangential line of the curve

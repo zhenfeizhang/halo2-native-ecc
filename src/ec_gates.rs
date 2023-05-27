@@ -65,6 +65,24 @@ where
         offset: &mut usize,
     ) -> Result<(), Error>;
 
+    /// Input p1 and p2 that are on the curve.
+    /// Input an additional bit b.
+    ///
+    /// Returns
+    /// - p3 = p1 + p2 if b == 1.
+    /// - p3 = p1 if b == 0.
+    ///
+    /// Caller must check p1 and p2 are on curve and b is a bit.
+    fn conditional_add_points(
+        &self,
+        region: &mut Region<F>,
+        config: &Self::Config,
+        p1: &Self::AssignedECPoint,
+        p2: &Self::AssignedECPoint,
+        b: &AssignedCell<F, F>,
+        offset: &mut usize,
+    ) -> Result<Self::AssignedECPoint, Error>;
+
     /// Return p3 = p1 + p2.
     /// Also enforces p1 and p2 are on curve.
     fn add_points(
@@ -161,8 +179,9 @@ where
         let p = p.coordinates().unwrap();
         let x = region.assign_advice(|| "x", config.a, *offset, || Value::known(*p.x()))?;
         let y = region.assign_advice(|| "y", config.b, *offset, || Value::known(*p.y()))?;
+        let res = Self::AssignedECPoint::new(x, y, *offset);
         *offset += 1;
-        Ok(Self::AssignedECPoint::new(x, y))
+        Ok(res)
     }
 
     /// For an input pair (x, y), enforces the point is on curve.
@@ -171,12 +190,38 @@ where
         &self,
         region: &mut Region<F>,
         config: &Self::Config,
-        _p: &Self::AssignedECPoint,
+        p: &Self::AssignedECPoint,
         offset: &mut usize,
     ) -> Result<(), Error> {
+        assert_eq!(
+            p.offset,
+            *offset - 1,
+            "on curve: p is not the latest assigned cells"
+        );
+
         //  | is on curve | 0  | 1  | y1^2 = x1^3 - 17
         config.q2.enable(region, *offset - 1)?;
         Ok(())
+    }
+
+    /// Input p1 and p2 that are on the curve.
+    /// Input an additional bit b.
+    ///
+    /// Returns
+    /// - p3 = p1 + p2 if b == 1.
+    /// - p3 = p1 if b == 0.
+    ///
+    /// Caller must check p1 and p2 are on curve and b is a bit.
+    fn conditional_add_points(
+        &self,
+        region: &mut Region<F>,
+        config: &Self::Config,
+        p1: &Self::AssignedECPoint,
+        p2: &Self::AssignedECPoint,
+        b: &AssignedCell<F, F>,
+        offset: &mut usize,
+    ) -> Result<Self::AssignedECPoint, Error> {
+        todo!()
     }
 
     /// Return p3 = p1 + p2.
@@ -262,6 +307,12 @@ where
         p1: &Self::AssignedECPoint,
         offset: &mut usize,
     ) -> Result<Self::AssignedECPoint, Error> {
+        assert_eq!(
+            p1.offset,
+            *offset - 1,
+            "point double: p is not the latest assigned cells"
+        );
+
         //                  q1   q2
         //  |   ec double | 1  | 1  |
         config.q1.enable(region, *offset - 1)?;

@@ -89,7 +89,7 @@ where
             let q2 = meta.query_selector(config.q2);
             let q_ec_disabled = meta.query_selector(config.q_ec_disabled);
 
-            let ec_add_gate = config.ec_add_gate(meta);
+            let ec_add_gate = config.conditional_ec_add_gate(meta);
             let ec_double_gate = config.ec_double_gate(meta);
             let on_curve_gate = config.on_curve_gate(meta);
             let partial_bit_decom_gate = config.partial_bit_decom_gate(meta);
