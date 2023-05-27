@@ -1,10 +1,10 @@
 use std::ops::Mul;
 
 use ark_std::test_rng;
-use grumpkin::Fq;
-use grumpkin::Fr;
-use grumpkin::G1Affine;
-use grumpkin::G1;
+use halo2curves::grumpkin::Fq;
+use halo2curves::grumpkin::Fr;
+use halo2curves::grumpkin::G1Affine;
+use halo2curves::grumpkin::G1;
 use halo2_proofs::arithmetic::Field;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::circuit::SimpleFloorPlanner;

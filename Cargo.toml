@@ -7,5 +7,9 @@ edition = "2021"
 
 [dependencies]
 halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_04_20" }
-grumpkin = { git = "https://github.com/zhenfeizhang/grumpkin", branch = "halo2curve-v0.3.2" }
+halo2curves = { git = "https://github.com/privacy-scaling-explorations/halo2curves.git", rev = "8e4cb9f0c66c864e8ca25da07f50ae95f664a5b7" }
 ark-std = { version = "0.4.0", features = ["print-trace"] }
+
+
+# [patch."https://github.com/privacy-scaling-explorations/halo2curves.git"]
+# halo2curves = { git = "https://github.com/zhenfeizhang/halo2curves", branch = "bn256-lookup-table" }
