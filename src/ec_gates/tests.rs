@@ -144,8 +144,7 @@ impl Circuit<Fq> for ECTestCircuit {
                         &self.p1,
                         &mut offset,
                     )?;
-                    let p4_rec =
-                        ec_chip.point_double(&mut region, &config, &p1, &mut offset)?;
+                    let p4_rec = ec_chip.point_double(&mut region, &config, &p1, &mut offset)?;
 
                     region.constrain_equal(p4.x.cell(), p4_rec.x.cell())?;
                     region.constrain_equal(p4.y.cell(), p4_rec.y.cell())?;
@@ -199,21 +198,21 @@ fn test_ec_ops() {
         prover.assert_satisfied();
     }
 
-    // // error case: add not equal
-    // {
-    //     let p3 = (p1 + p1).to_affine();
-    //     let circuit = ECTestCircuit { s, p1, p2, p3, p4 };
+    // error case: add not equal
+    {
+        let p3 = (p1 + p1).to_affine();
+        let circuit = ECTestCircuit { s, p1, p2, p3, p4 };
 
-    //     let prover = MockProver::run(k, &circuit, vec![]).unwrap();
-    //     assert!(prover.verify().is_err());
-    // }
+        let prover = MockProver::run(k, &circuit, vec![]).unwrap();
+        assert!(prover.verify().is_err());
+    }
 
-    // // error case: double not equal
-    // {
-    //     let p4 = (p1 + p2).to_affine();
-    //     let circuit = ECTestCircuit { s, p1, p2, p3, p4 };
+    // error case: double not equal
+    {
+        let p4 = (p1 + p2).to_affine();
+        let circuit = ECTestCircuit { s, p1, p2, p3, p4 };
 
-    //     let prover = MockProver::run(k, &circuit, vec![]).unwrap();
-    //     assert!(prover.verify().is_err());
-    // }
+        let prover = MockProver::run(k, &circuit, vec![]).unwrap();
+        assert!(prover.verify().is_err());
+    }
 }

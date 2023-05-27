@@ -10,7 +10,7 @@ The gate configuration is:
 |   op codes  | cost | q_ec_disabled | q1 | q2 | statement
 | ----------- |:----:|:-------------:| -- | -- | -------------
 |      ec add |   4  |       0       | 1  | 0  | (x1, y1), (x2, y2) and (x3, -y3) are on a same line
-|   ec double |   3  |       0       | 1  | 1  | (x1, y1) and (x3, -y3) are on a tangential line of the curve
+|   ec double |   2  |       0       | 1  | 1  | (x1, y1) and (x3, -y3) are on a tangential line of the curve
 | is on curve |   1  |       0       | 0  | 1  | y1^2 = x1^3 - C::b()
 |     partial |   3  |       1       | 0  | 1  | y3 = x1 + y1 + x2 + y2 + x3 and
 |   decompose |      |               |    |    | x1, y1, x2, y2 are all binary
@@ -23,6 +23,7 @@ The gate configuration is:
 |-------|------|------|------|----|----
 |       | p1.x | p1.y |   0  | 1  | 0  
 |       | p2.x | p2.y |      |    |    
+|       | cond |      |      |    |
 |offset | p3.x | p3.y |      |    |    
 
 An addition is correct if 
@@ -41,8 +42,8 @@ A doubling is correct if
 ## On Curve
 |index  |  a   |  b   | q_ec | q1 | q2 
 |-------|------|------|------|----|----
-|       | p1.x | p1.y |   0  | 0  | 1  
-|offset | res  |      |      |    |    
+|offset | p1.x | p1.y |   0  | 0  | 1  
+
 # Field ops
 
 ## partial_bit_decomp

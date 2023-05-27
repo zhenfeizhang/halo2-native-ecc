@@ -83,37 +83,6 @@ where
         offset: &mut usize,
     ) -> Result<Self::AssignedECPoint, Error>;
 
-    // /// Return p3 = p1 + p2.
-    // /// Also enforces p1 and p2 are on curve.
-    // fn add_points(
-    //     &self,
-    //     region: &mut Region<F>,
-    //     config: &Self::Config,
-    //     p1: &C,
-    //     p2: &C,
-    //     offset: &mut usize,
-    // ) -> Result<Self::AssignedECPoint, Error>;
-
-    // /// Return p3 = p1 + p2
-    // fn add_assigned_points(
-    //     &self,
-    //     region: &mut Region<F>,
-    //     config: &Self::Config,
-    //     p1: &Self::AssignedECPoint,
-    //     p2: &Self::AssignedECPoint,
-    //     offset: &mut usize,
-    // ) -> Result<Self::AssignedECPoint, Error>;
-
-    // /// Return p2 = p1 + p1
-    // /// Also enforces p1 is on curve.
-    // fn double_point(
-    //     &self,
-    //     region: &mut Region<F>,
-    //     config: &Self::Config,
-    //     p1: &C,
-    //     offset: &mut usize,
-    // ) -> Result<Self::AssignedECPoint, Error>;
-
     /// Return p2 = p1 + p1
     fn point_double(
         &self,
@@ -248,81 +217,6 @@ where
         Ok(p3)
     }
 
-    // /// Return p3 = p1 + p2.
-    // /// Also enforces p1 and p2 are on curve.
-    // fn add_points(
-    //     &self,
-    //     region: &mut Region<F>,
-    //     config: &Self::Config,
-    //     p1: &C,
-    //     p2: &C,
-    //     offset: &mut usize,
-    // ) -> Result<Self::AssignedECPoint, Error> {
-    //     // checking if a point is on curve takes 2 continuous rows, therefore we need
-    //     // to copy the cells for additions
-    //     let p1_checked = self.load_private_point(region, config, p1, offset)?;
-    //     let p2_checked = self.load_private_point(region, config, p2, offset)?;
-    //     let p1_unchecked = self.load_private_point_unchecked(region, config, p1, offset)?;
-    //     let p2_unchecked = self.load_private_point_unchecked(region, config, p2, offset)?;
-
-    //     region.constrain_equal(p1_checked.x.cell(), p1_unchecked.x.cell())?;
-    //     region.constrain_equal(p1_checked.y.cell(), p1_unchecked.y.cell())?;
-    //     region.constrain_equal(p2_checked.x.cell(), p2_unchecked.x.cell())?;
-    //     region.constrain_equal(p2_checked.y.cell(), p2_unchecked.y.cell())?;
-
-    //     self.add_assigned_points(region, config, &p1_unchecked, &p2_unchecked, offset)
-    // }
-
-    // /// Return cells for p3 = p1 + p2
-    // ///
-    // /// Required layout:
-    // ///
-    // ///  index  |  a   |  b
-    // ///  -------|------|------
-    // ///         | p1.x | p1.y
-    // ///         | p2.x | p2.y
-    // ///  offset | p3.x | p3.y
-    // fn add_assigned_points(
-    //     &self,
-    //     region: &mut Region<F>,
-    //     config: &Self::Config,
-    //     p1: &Self::AssignedECPoint,
-    //     p2: &Self::AssignedECPoint,
-    //     offset: &mut usize,
-    // ) -> Result<Self::AssignedECPoint, Error> {
-    //     //                  q1   q2
-    //     //  |      ec add | 1  | 0  |
-    //     config.q1.enable(region, *offset - 2)?;
-
-    //     let p1 = p1.witness();
-    //     let p2 = p2.witness();
-    //     let p3 = (p1 + p2).to_affine();
-
-    //     let p3 = self.load_private_point_unchecked(region, config, &p3, offset)?;
-    //     self.enforce_on_curve(region, config, &p3, offset)?;
-    //     Ok(p3)
-    // }
-
-    // /// Return p2 = p1 + p1
-    // /// Also enforces p1 is on curve.
-    // fn point_double(
-    //     &self,
-    //     region: &mut Region<F>,
-    //     config: &Self::Config,
-    //     p1: &C,
-    //     offset: &mut usize,
-    // ) -> Result<Self::AssignedECPoint, Error> {
-    //     // checking if a point is on curve takes 2 continuous rows, therefore we need
-    //     // to copy the cells for doubling
-    //     let p1_checked = self.load_private_point(region, config, p1, offset)?;
-    //     let p1_unchecked = self.load_private_point_unchecked(region, config, p1, offset)?;
-
-    //     region.constrain_equal(p1_checked.x.cell(), p1_unchecked.x.cell())?;
-    //     region.constrain_equal(p1_checked.y.cell(), p1_unchecked.y.cell())?;
-
-    //     self.double_assigned_point(region, config, &p1_unchecked, offset)
-    // }
-
     /// Return p2 = p1 + p1
     fn point_double(
         &self,
@@ -394,10 +288,8 @@ where
                 res = (res + *p).into();
             }
         }
-        println!("res {:?}", res);
 
         self.load_private_point(region, config, p, offset)
-        // todo!()
     }
 
     /// Pad the row with empty cells.
