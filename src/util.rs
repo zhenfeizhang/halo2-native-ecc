@@ -69,9 +69,9 @@ pub(crate) fn decompose_u128(a: &u128) -> Vec<u64> {
 
 #[cfg(test)]
 mod test {
+    use halo2_proofs::arithmetic::Field;
     use halo2curves::grumpkin::Fq;
     use halo2curves::grumpkin::Fr;
-    use halo2_proofs::arithmetic::Field;
 
     use crate::util::byte_to_le_bits;
     use crate::util::to_le_bits;

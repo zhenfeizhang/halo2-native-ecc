@@ -1,6 +1,4 @@
 use ark_std::test_rng;
-use halo2curves::grumpkin::Fq;
-use halo2curves::grumpkin::G1Affine;
 use halo2_proofs::arithmetic::Field;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::circuit::SimpleFloorPlanner;
@@ -8,6 +6,8 @@ use halo2_proofs::dev::MockProver;
 use halo2_proofs::plonk::Circuit;
 use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Error;
+use halo2curves::grumpkin::Fq;
+use halo2curves::grumpkin::G1Affine;
 
 use crate::arith_gates::ArithOps;
 use crate::chip::ECChip;

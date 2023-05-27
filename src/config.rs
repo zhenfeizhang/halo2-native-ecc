@@ -58,16 +58,14 @@ where
         // -----------
         // | x1 | y1 |
         // | x2 | y2 |
+        // | c  |    |
         // | x3 | y3 |
-        let add =
-            (a2.clone() - a0.clone()) * (b1 - b0.clone()) + (a1 - a0) * (b2.clone() + b0.clone());
+        let add = (a2.clone() - a0.clone()) * (b1 - b0.clone())
+            + (a1 - a0.clone()) * (b2.clone() + b0.clone());
 
         // Given (x1, y1), (x2, y2)
         // if condition is true, we return (x1, y1) + (x2, y2)
         // else we return (x1, y1)
-
-        let a0 = meta.query_advice(self.a, Rotation::cur());
-        let b0 = meta.query_advice(self.b, Rotation::cur());
         condition.clone() * add
             + (one.clone() - condition.clone()) * (a2 - a0)
             + (one - condition) * (b2 - b0)

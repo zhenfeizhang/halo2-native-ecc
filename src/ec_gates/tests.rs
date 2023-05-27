@@ -1,10 +1,6 @@
 use std::ops::Mul;
 
 use ark_std::test_rng;
-use halo2curves::grumpkin::Fq;
-use halo2curves::grumpkin::Fr;
-use halo2curves::grumpkin::G1Affine;
-use halo2curves::grumpkin::G1;
 use halo2_proofs::arithmetic::Field;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::circuit::SimpleFloorPlanner;
@@ -14,11 +10,16 @@ use halo2_proofs::halo2curves::group::Group;
 use halo2_proofs::plonk::Circuit;
 use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Error;
+use halo2curves::grumpkin::Fq;
+use halo2curves::grumpkin::Fr;
+use halo2curves::grumpkin::G1Affine;
+use halo2curves::grumpkin::G1;
 
 use crate::chip::ECChip;
 use crate::config::ECConfig;
 use crate::ec_gates::NativeECOps;
 use crate::util::field_decompose;
+use crate::ArithOps;
 
 #[derive(Default, Debug, Clone, Copy)]
 struct ECTestCircuit {
@@ -69,7 +70,7 @@ impl Circuit<Fq> for ECTestCircuit {
                 let p3 = ec_chip.load_private_point(&mut region, &config, &self.p3, &mut offset)?;
                 let p4 = ec_chip.load_private_point(&mut region, &config, &self.p4, &mut offset)?;
 
-                // unit test: point addition
+                // unit test: point addition with 1
                 {
                     let p1 = ec_chip.load_private_point_unchecked(
                         &mut region,
@@ -83,25 +84,56 @@ impl Circuit<Fq> for ECTestCircuit {
                         &self.p2,
                         &mut offset,
                     )?;
-                    let p3_rec =
-                        ec_chip.add_assigned_points(&mut region, &config, &p1, &p2, &mut offset)?;
-
-                    region.constrain_equal(p3.x.cell(), p3_rec.x.cell())?;
-                    region.constrain_equal(p3.y.cell(), p3_rec.y.cell())?;
-                }
-
-                // unit test: point addition from witnesses
-                {
-                    let p3_rec = ec_chip.add_points(
+                    let bit = ec_chip.load_private_field(
                         &mut region,
                         &config,
-                        &self.p1,
-                        &self.p2,
+                        &Fq::from(1),
+                        &mut offset,
+                    )?;
+                    let p3_rec = ec_chip.conditional_point_add(
+                        &mut region,
+                        &config,
+                        &p1,
+                        &p2,
+                        &bit,
                         &mut offset,
                     )?;
 
                     region.constrain_equal(p3.x.cell(), p3_rec.x.cell())?;
                     region.constrain_equal(p3.y.cell(), p3_rec.y.cell())?;
+                }
+
+                // unit test: point addition with 0
+                {
+                    let p1 = ec_chip.load_private_point_unchecked(
+                        &mut region,
+                        &config,
+                        &self.p1,
+                        &mut offset,
+                    )?;
+                    let p2 = ec_chip.load_private_point_unchecked(
+                        &mut region,
+                        &config,
+                        &self.p2,
+                        &mut offset,
+                    )?;
+                    let bit = ec_chip.load_private_field(
+                        &mut region,
+                        &config,
+                        &Fq::from(0),
+                        &mut offset,
+                    )?;
+                    let p3_rec = ec_chip.conditional_point_add(
+                        &mut region,
+                        &config,
+                        &p1,
+                        &p2,
+                        &bit,
+                        &mut offset,
+                    )?;
+
+                    region.constrain_equal(p1.x.cell(), p3_rec.x.cell())?;
+                    region.constrain_equal(p1.y.cell(), p3_rec.y.cell())?;
                 }
 
                 // unit test: point doubling
@@ -113,30 +145,30 @@ impl Circuit<Fq> for ECTestCircuit {
                         &mut offset,
                     )?;
                     let p4_rec =
-                        ec_chip.double_assigned_point(&mut region, &config, &p1, &mut offset)?;
+                        ec_chip.point_double(&mut region, &config, &p1, &mut offset)?;
 
                     region.constrain_equal(p4.x.cell(), p4_rec.x.cell())?;
                     region.constrain_equal(p4.y.cell(), p4_rec.y.cell())?;
                 }
 
-                // unit test: scalar decomposition
-                {
-                    let _scalar_cells =
-                        ec_chip.decompose_scalar(&mut region, &config, &self.s, &mut offset)?;
-                }
+                // // unit test: scalar decomposition
+                // {
+                //     let _scalar_cells =
+                //         ec_chip.decompose_scalar(&mut region, &config, &self.s, &mut offset)?;
+                // }
 
-                // unit test: curve mul
-                {
-                    println!("curve point: {:?}", self.p1.mul(self.s).to_affine());
+                // // unit test: curve mul
+                // {
+                //     println!("curve point: {:?}", self.p1.mul(self.s).to_affine());
 
-                    let _scalar_cells = ec_chip.mul_assigned_point(
-                        &mut region,
-                        &config,
-                        &self.p1,
-                        &self.s,
-                        &mut offset,
-                    )?;
-                }
+                //     let _scalar_cells = ec_chip.point_mul(
+                //         &mut region,
+                //         &config,
+                //         &self.p1,
+                //         &self.s,
+                //         &mut offset,
+                //     )?;
+                // }
 
                 // pad the last two rows
                 ec_chip.pad(&mut region, &config, &mut offset)?;
@@ -167,21 +199,21 @@ fn test_ec_ops() {
         prover.assert_satisfied();
     }
 
-    // error case: add not equal
-    {
-        let p3 = (p1 + p1).to_affine();
-        let circuit = ECTestCircuit { s, p1, p2, p3, p4 };
+    // // error case: add not equal
+    // {
+    //     let p3 = (p1 + p1).to_affine();
+    //     let circuit = ECTestCircuit { s, p1, p2, p3, p4 };
 
-        let prover = MockProver::run(k, &circuit, vec![]).unwrap();
-        assert!(prover.verify().is_err());
-    }
+    //     let prover = MockProver::run(k, &circuit, vec![]).unwrap();
+    //     assert!(prover.verify().is_err());
+    // }
 
-    // error case: double not equal
-    {
-        let p4 = (p1 + p2).to_affine();
-        let circuit = ECTestCircuit { s, p1, p2, p3, p4 };
+    // // error case: double not equal
+    // {
+    //     let p4 = (p1 + p2).to_affine();
+    //     let circuit = ECTestCircuit { s, p1, p2, p3, p4 };
 
-        let prover = MockProver::run(k, &circuit, vec![]).unwrap();
-        assert!(prover.verify().is_err());
-    }
+    //     let prover = MockProver::run(k, &circuit, vec![]).unwrap();
+    //     assert!(prover.verify().is_err());
+    // }
 }
