@@ -32,7 +32,7 @@ pub trait ArithOps<F: Field> {
         f1: &F,
         f2: &F,
         offset: &mut usize,
-    ) -> Result<(AssignedCell<F, F>, AssignedCell<F, F>), Error>;
+    ) -> Result<[AssignedCell<F, F>; 2], Error>;
 
     /// Add two cells and return the sum
     fn add(
@@ -70,6 +70,7 @@ pub trait ArithOps<F: Field> {
     /// Output
     /// - its bit decomposition cells in little endian
     /// - the cell that contains u128
+    #[allow(clippy::type_complexity)]
     fn decompose_u128(
         &self,
         region: &mut Region<F>,
@@ -114,14 +115,14 @@ where
         f1: &F,
         f2: &F,
         offset: &mut usize,
-    ) -> Result<(AssignedCell<F, F>, AssignedCell<F, F>), Error> {
+    ) -> Result<[AssignedCell<F, F>; 2], Error> {
         let a =
             region.assign_advice(|| "field element", config.a, *offset, || Value::known(*f1))?;
         let b =
             region.assign_advice(|| "field element", config.b, *offset, || Value::known(*f2))?;
 
         *offset += 1;
-        Ok((a, b))
+        Ok([a, b])
     }
 
     /// Add two cells and return the sum

@@ -317,7 +317,7 @@ where
         let gen = C::generator();
         let bits = self.decompose_scalar(region, config, s, offset)?;
 
-        let p_assigned = self.load_private_point(region, config, &p, offset)?;
+        let p_assigned = self.load_private_point(region, config, p, offset)?;
         let gen_assigned = self.load_private_point(region, config, &gen, offset)?;
 
         // we do not have a cell representation for infinity point
@@ -346,17 +346,17 @@ where
                 };
 
                 // copy the bit cell; already constraint `bit` is either 0 or 1
-                let (bit, _) = self.load_two_private_fields(
+                let bit = self.load_two_private_fields(
                     region,
                     config,
                     &leak(&b.value()),
                     &F::ZERO,
                     offset,
                 )?;
-                region.constrain_equal(bit.cell(), b.cell())?;
+                region.constrain_equal(bit[0].cell(), b.cell())?;
 
                 // conditional add
-                self.conditional_point_add(region, config, &res_double, &p_copied, &bit, offset)?
+                self.conditional_point_add(region, config, &res_double, &p_copied, &bit[0], offset)?
             };
         }
 
@@ -364,13 +364,13 @@ where
         let offset_generator = neg_generator_times_2_to_256::<C, C::Base>();
         let offset_generator_assigned =
             self.load_private_point_unchecked(region, config, &offset_generator, offset)?;
-        let (bit, _) = self.load_two_private_fields(region, config, &F::ONE, &F::ZERO, offset)?;
+        let bit = self.load_two_private_fields(region, config, &F::ONE, &F::ZERO, offset)?;
         res = self.conditional_point_add(
             region,
             config,
             &res,
             &offset_generator_assigned,
-            &bit,
+            &bit[0],
             offset,
         )?;
 

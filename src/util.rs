@@ -24,6 +24,7 @@ where
 
 /// Split a scalar field elements into high and low and
 /// store the high and low in base field.
+#[allow(dead_code)]
 pub(crate) fn field_decompose<F, S>(e: &S) -> (F, F)
 where
     F: PrimeField,
@@ -35,6 +36,7 @@ where
     (high, low)
 }
 
+#[allow(dead_code)]
 pub(crate) fn to_le_bits<F: PrimeField<Repr = [u8; 32]>>(e: &F) -> Vec<bool> {
     let mut res = vec![];
     let repr = e.to_repr();
