@@ -134,9 +134,8 @@ where
         b: &F,
         offset: &mut usize,
     ) -> Result<AssignedCell<F, F>, Error> {
-        //  |         add |       1       | 1  | 0  |
-        config.q_ec_disabled.enable(region, *offset)?;
-        config.q1.enable(region, *offset)?;
+        // |         add |   2  |       0      | 0  | 1  | 0  | a1 = a0 + b0
+        config.q2.enable(region, *offset)?;
         region.assign_advice(|| "field element", config.a, *offset, || Value::known(*a))?;
         region.assign_advice(|| "field element", config.b, *offset, || Value::known(*b))?;
 
@@ -167,10 +166,8 @@ where
         b: &F,
         offset: &mut usize,
     ) -> Result<AssignedCell<F, F>, Error> {
-        //  |         mul |       1       | 1  | 1  |
-        config.q_ec_disabled.enable(region, *offset)?;
-        config.q1.enable(region, *offset)?;
-        config.q2.enable(region, *offset)?;
+        // |         mul |   2  |       0      | 0  | 0  | 1  | a1 = a0 * b0
+        config.q3.enable(region, *offset)?;
         region.assign_advice(|| "field element", config.a, *offset, || Value::known(*a))?;
         region.assign_advice(|| "field element", config.b, *offset, || Value::known(*b))?;
 
@@ -203,12 +200,12 @@ where
         inputs: &[F],
         offset: &mut usize,
     ) -> Result<Vec<AssignedCell<F, F>>, Error> {
-        // |     partial |      1       | 0  | 1  |
         assert_eq!(inputs.len(), 6, "input length is not 6");
 
         let mut res = vec![];
-        config.q_ec_disabled.enable(region, *offset)?;
-        config.q2.enable(region, *offset)?;
+        // |     partial |   3  |       0      | 1  | 0  | 0  | y3 = x1 + y1 + x2 + y2 + x3 and
+        // |   decompose |      |              |    |    |    | x1, y1, x2, y2 are all binary
+        config.q1.enable(region, *offset)?;
         res.push(region.assign_advice(|| "x0", config.a, *offset, || Value::known(inputs[0]))?);
         res.push(region.assign_advice(|| "y0", config.b, *offset, || Value::known(inputs[1]))?);
         res.push(region.assign_advice(
@@ -271,8 +268,10 @@ where
         // we assert the decomposition via 32 calls of partial decomp
         // each call we absorb 4 bits
         for i in 0..32 {
-            config.q_ec_disabled.enable(region, *offset)?;
-            config.q2.enable(region, *offset)?;
+            // |     partial |   3  |       0      | 1  | 0  | 0  | y3 = x1 + y1 + x2 + y2 + x3 and
+            // |   decompose |      |              |    |    |    | x1, y1, x2, y2 are all binary
+
+            config.q1.enable(region, *offset)?;
 
             // allocate the four bits to be absorbed
             res.push(region.assign_advice(
@@ -340,12 +339,6 @@ where
         // format the result in little endian format
         res.reverse();
 
-        // for (i, e) in res.iter().enumerate() {
-        //     println!("{} {:?}", i, e.value());
-        //     if i % 8 == 7 {
-        //         println!()
-        //     }
-        // }
         Ok((res, acc_cells.last().unwrap().clone()))
     }
 }

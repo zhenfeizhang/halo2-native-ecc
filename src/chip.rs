@@ -59,35 +59,43 @@ where
         let f = meta.fixed_column();
         meta.enable_constant(f);
 
-        let q_ec_disabled = meta.complex_selector();
+        // ec is enabled
+        let q_ec_enable = meta.complex_selector();
+        // ec conditional add
         let q1 = meta.complex_selector();
+        // ec double
         let q2 = meta.complex_selector();
+        // ec on curve
+        let q3 = meta.complex_selector();
 
         let config = ECConfig {
             a,
             b,
-            q_ec_disabled,
+            q_ec_enable,
             q1,
             q2,
+            q3,
             _phantom: PhantomData::default(),
         };
 
         let one = Expression::Constant(F::ONE);
 
-        meta.create_gate("native ec", |meta| {
-            // |   op codes  | cost | q_ec_disabled | q1 | q2 | statement
-            // | ----------- |:----:|:-------------:| -- | -- | -------------
-            // |      ec add |   3  |       0       | 1  | 0  | (x1, y1), (x2, y2) and (x3, -y3) are on a same line
-            // |   ec double |   2  |       0       | 1  | 1  | (x1, y1) and (x3, -y3) are on a tangential line of the curve
-            // | is on curve |   2  |       0       | 0  | 1  | y1^2 = x1^3 - C::b()
-            // |     partial |   3  |       1       | 0  | 1  | y3 = x1 + y1 + x2 + y2 + x3 and
-            // |   decompose |      |               |    |    | x1, y1, x2, y2 are all binary
-            // |         add |   2  |       1       | 1  | 0  | a1 = a0 + b0
-            // |         mul |   2  |       1       | 1  | 1  | a1 = a0 * b0  
+        meta.create_gate("native ec chip", |meta| {
+            // |   op codes  | cost | q_ec_enabled | q1 | q2 | q3 | statement
+            // | ----------- |:----:|:------------:| -- | -- | -- | -------------
+            // |      ec add |   4  |       1      | 1  | 0  | 0  | (x1, y1), (x2, y2) and (x3, -y3) are on a same line
+            // |   ec double |   2  |       1      | 0  | 1  | 0  | (x1, y1) and (x3, -y3) are on a tangential line of the curve
+            // | is on curve |   1  |       1      | 0  | 0  | 1  | y1^2 = x1^3 - C::b()
+            //
+            // |     partial |   3  |       0      | 1  | 0  | 0  | y3 = x1 + y1 + x2 + y2 + x3 and
+            // |   decompose |      |              |    |    |    | x1, y1, x2, y2 are all binary
+            // |         add |   2  |       0      | 0  | 1  | 0  | a1 = a0 + b0
+            // |         mul |   2  |       0      | 0  | 0  | 1  | a1 = a0 * b0
 
             let q1 = meta.query_selector(config.q1);
             let q2 = meta.query_selector(config.q2);
-            let q_ec_disabled = meta.query_selector(config.q_ec_disabled);
+            let q3 = meta.query_selector(config.q3);
+            let q_ec_enable = meta.query_selector(config.q_ec_enable);
 
             let ec_add_gate = config.conditional_ec_add_gate(meta);
             let ec_double_gate = config.ec_double_gate(meta);
@@ -97,22 +105,23 @@ where
             let mul_gate = config.mul_gate(meta);
 
             vec![
-                //  |      ec add |       0       | 1  | 0  |
-                ec_add_gate * (one.clone() - q_ec_disabled.clone()) * q1.clone() * (one.clone() - q2.clone())
-                //  |   ec double |       0       | 1  | 1  |
-                    + ec_double_gate * (one.clone() - q_ec_disabled.clone()) * q1.clone() * q2.clone()
-                //  | is on curve |       0       | 0  | 1  |
-                    + on_curve_gate * (one.clone() - q_ec_disabled.clone()) * (one.clone() - q1.clone()) * q2.clone()
-                //  |   partial   |       1       | 0  | 1  | 
-                //  |  decompose  |               |    |    |
-                    + partial_bit_decom_gate * q_ec_disabled.clone() * (one.clone() - q1.clone()) * q2.clone()
-                //  |         add |       1       | 1  | 0  |  
-                    + add_gate * q_ec_disabled.clone() * q1.clone() * (one.clone() - q2.clone())
-                //  |         mul |       1       | 1  | 1  | 
-                    + mul_gate * q_ec_disabled * q1 * q2,
-                ]
+                // |      ec add |   4  |       1       | 1  | 0  | 0  |
+                ec_add_gate * q_ec_enable.clone() * q1.clone()
+                // |   ec double |   2  |       1       | 0  | 1  | 0  |
+                    + ec_double_gate * q_ec_enable.clone() * q2.clone()
+                // | is on curve |   1  |       1       | 0  | 0  | 1  |
+                    + on_curve_gate * q_ec_enable.clone() * q3.clone()
+                // |     partial |   3  |       0       | 1  | 0  | 0  | 
+                // |   decompose |      |               |    |    |    |
+                    + partial_bit_decom_gate * (one.clone() - q_ec_enable.clone()) * q1
+                // |         add |   2  |       0       | 0  | 1  | 0  |  
+                    + add_gate * (one.clone() - q_ec_enable.clone()) * q2
+                // |         mul |   2  |       0       | 0  | 0  | 1  | 
+                    + mul_gate * (one - q_ec_enable) * q3,
+            ]
         });
-        println!("degree {}", meta.degree());
+        #[cfg(feature = "verbose")]
+        println!("custom gate's degree {}", meta.degree());
         config
     }
 }

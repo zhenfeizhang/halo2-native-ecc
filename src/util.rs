@@ -72,7 +72,7 @@ pub(crate) fn decompose_u128(a: &u128) -> Vec<u64> {
 
 #[inline]
 // hardcoded value for `-2^256 * generator` for Grumpkin curve
-pub(crate) fn neg_generator_times_2_to_256<C, F>() -> C
+pub(crate) fn neg_generator_times_2_to_256<C, F>() -> (C, F, F)
 where
     F: PrimeField<Repr = [u8; 32]>,
     C: CurveAffine<Base = F>,
@@ -85,7 +85,7 @@ where
         "8411761026004062292626067694055242675827541323706122037355419552115320964415",
     )
     .unwrap();
-    C::from_xy(x, y).unwrap()
+    (C::from_xy(x, y).unwrap(), x, y)
 }
 
 #[cfg(test)]

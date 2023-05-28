@@ -176,8 +176,9 @@ where
             );
         }
 
-        //  | is on curve | 0  | 1  | y1^2 = x1^3 - 17
-        config.q2.enable(region, *offset - 1)?;
+        // | is on curve |   1  |       1      | 0  | 0  | 1  | y1^2 = x1^3 - C::b()
+        config.q_ec_enable.enable(region, *offset - 1)?;
+        config.q3.enable(region, *offset - 1)?;
         Ok(())
     }
 
@@ -208,8 +209,8 @@ where
         //         | cond |
         //  offset | p3.x | p3.y
 
-        //                  q1   q2
-        //  | cond ec add | 1  | 0  |
+        // |      ec add |   4  |       1      | 1  | 0  | 0  | (x1, y1), (x2, y2) and (x3, -y3) are on a same line
+        config.q_ec_enable.enable(region, *offset - 3)?;
         config.q1.enable(region, *offset - 3)?;
 
         let p1_witness = p1.witness();
@@ -256,9 +257,8 @@ where
             "point double: p is not the latest assigned cells"
         );
 
-        //                  q1   q2
-        //  |   ec double | 1  | 1  |
-        config.q1.enable(region, *offset - 1)?;
+        // |   ec double |   2  |       1      | 0  | 1  | 0  | (x1, y1) and (x3, -y3) are on a tangential line of the curve
+        config.q_ec_enable.enable(region, *offset - 1)?;
         config.q2.enable(region, *offset - 1)?;
         let p1_witness = p1.witness();
         let p2 = (p1_witness + p1_witness).to_affine();
@@ -293,10 +293,7 @@ where
         let (low_cells, _res) = self.decompose_u128(region, config, &low, offset)?;
         let (high_cells, _res) = self.decompose_u128(region, config, &high, offset)?;
         let res = [low_cells.as_slice(), high_cells.as_slice()].concat();
-        // println!("s: {:?}", s);
-        // for (i, e) in res.iter().enumerate(){
-        //     println!("{} {:?}", i, e.value());
-        // }
+
         Ok(res)
     }
 
@@ -360,8 +357,8 @@ where
             };
         }
 
-        // now we  subtract 2^256 * generator from res
-        let offset_generator = neg_generator_times_2_to_256::<C, C::Base>();
+        // now we subtract 2^256 * generator from res
+        let (offset_generator, x, y) = neg_generator_times_2_to_256::<C, C::Base>();
         let offset_generator_assigned =
             self.load_private_point_unchecked(region, config, &offset_generator, offset)?;
         let bit = self.load_two_private_fields(region, config, &F::ONE, &F::ZERO, offset)?;
@@ -373,6 +370,9 @@ where
             &bit[0],
             offset,
         )?;
+        // ensure the `subtract 2^256 * generator` cells are fixed constants
+        region.constrain_constant(offset_generator_assigned.x.cell(), x)?;
+        region.constrain_constant(offset_generator_assigned.y.cell(), y)?;
 
         Ok(res)
     }

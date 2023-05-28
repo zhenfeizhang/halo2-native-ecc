@@ -24,9 +24,10 @@ where
     pub(crate) b: Column<Advice>,
 
     // selectors
-    pub(crate) q_ec_disabled: Selector,
-    pub(crate) q1: Selector,
-    pub(crate) q2: Selector,
+    pub(crate) q_ec_enable: Selector, // ec is enabled
+    pub(crate) q1: Selector,          // ec conditional add
+    pub(crate) q2: Selector,          // ec double
+    pub(crate) q3: Selector,          // ec on curve
 
     pub(crate) _phantom: PhantomData<C>,
 }
