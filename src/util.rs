@@ -2,6 +2,7 @@ use std::u128;
 
 use halo2_proofs::circuit::Value;
 use halo2_proofs::halo2curves::ff::PrimeField;
+use halo2curves::CurveAffine;
 
 pub(crate) fn leak<T: Copy + Default>(a: &Value<&T>) -> T {
     let mut t = T::default();
@@ -65,6 +66,24 @@ pub(crate) fn decompose_u128(a: &u128) -> Vec<u64> {
                 .collect::<Vec<_>>()
         })
         .collect()
+}
+
+#[inline]
+// hardcoded value for `-2^256 * generator` for Grumpkin curve
+pub(crate) fn neg_generator_times_2_to_256<C, F>() -> C
+where
+    F: PrimeField<Repr = [u8; 32]>,
+    C: CurveAffine<Base = F>,
+{
+    let x = F::from_str_vartime(
+        "18292374296067206172215749431916515128228165256807037435601971767767562625877",
+    )
+    .unwrap();
+    let y = F::from_str_vartime(
+        "8411761026004062292626067694055242675827541323706122037355419552115320964415",
+    )
+    .unwrap();
+    C::from_xy(x, y).unwrap()
 }
 
 #[cfg(test)]

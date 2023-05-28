@@ -112,7 +112,7 @@ where
                     + mul_gate * q_ec_disabled * q1 * q2,
                 ]
         });
-
+        println!("degree {}", meta.degree());
         config
     }
 }

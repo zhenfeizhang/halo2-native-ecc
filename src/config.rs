@@ -38,6 +38,9 @@ where
 {
     pub(crate) fn conditional_ec_add_gate(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
         let one = Expression::Constant(F::ONE);
+        // FIXME: currently hardcoded for Grumpkin curve
+        let curve_param_b = -F::from(17);
+        let curve_param_b_expr = Expression::Constant(curve_param_b);
 
         let a0 = meta.query_advice(self.a, Rotation::cur());
         let b0 = meta.query_advice(self.b, Rotation::cur());
@@ -67,14 +70,21 @@ where
         // if condition is true, we return (x1, y1) + (x2, y2)
         // else we return (x1, y1)
         condition.clone() * add
-            + (one.clone() - condition.clone()) * (a2 - a0)
-            + (one - condition) * (b2 - b0)
+            + (one.clone() - condition.clone()) * (a2.clone() - a0)
+            + (one - condition) * (b2.clone() - b0)
+            // enforce the result is on curve
+            + a2.clone() * a2.clone() * a2
+            - b2.clone() * b2
+            + curve_param_b_expr
     }
 
     /// (x1, y1) and (x3, -y3) are on a tangential line of the curve
     pub(crate) fn ec_double_gate(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
         let two = Expression::Constant(F::from(2));
         let three = Expression::Constant(F::from(3));
+        // FIXME: currently hardcoded for Grumpkin curve
+        let curve_param_b = -F::from(17);
+        let curve_param_b_expr = Expression::Constant(curve_param_b);
 
         let a0 = meta.query_advice(self.a, Rotation::cur());
         let b0 = meta.query_advice(self.b, Rotation::cur());
@@ -89,7 +99,11 @@ where
         // | x1 | y1 |
         // | x3 | y3 |
 
-        two * b0.clone() * (b1 + b0) + (three * a0.clone() * a0.clone()) * (a1 - a0)
+        two * b0.clone() * (b1.clone() + b0) + (three * a0.clone() * a0.clone()) * (a1.clone() - a0)
+        // enforce the result is on curve
+        + a1.clone() * a1.clone() * a1
+            - b1.clone() * b1
+            + curve_param_b_expr
     }
 
     /// (x1, y1) is on curve

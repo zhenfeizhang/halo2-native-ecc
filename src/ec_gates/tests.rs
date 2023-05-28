@@ -18,7 +18,6 @@ use halo2curves::grumpkin::G1;
 use crate::chip::ECChip;
 use crate::config::ECConfig;
 use crate::ec_gates::NativeECOps;
-use crate::util::field_decompose;
 use crate::ArithOps;
 
 #[derive(Default, Debug, Clone, Copy)]
@@ -28,6 +27,7 @@ struct ECTestCircuit {
     p2: G1Affine,
     p3: G1Affine, // p1 + p2
     p4: G1Affine, // 2p1
+    p5: G1Affine, // p1 * s
 }
 
 impl Circuit<Fq> for ECTestCircuit {
@@ -69,6 +69,7 @@ impl Circuit<Fq> for ECTestCircuit {
                     ec_chip.load_private_point(&mut region, &config, &self.p2, &mut offset)?;
                 let p3 = ec_chip.load_private_point(&mut region, &config, &self.p3, &mut offset)?;
                 let p4 = ec_chip.load_private_point(&mut region, &config, &self.p4, &mut offset)?;
+                let p5 = ec_chip.load_private_point(&mut region, &config, &self.p5, &mut offset)?;
 
                 // unit test: point addition with 1
                 {
@@ -150,24 +151,23 @@ impl Circuit<Fq> for ECTestCircuit {
                     region.constrain_equal(p4.y.cell(), p4_rec.y.cell())?;
                 }
 
-                // // unit test: scalar decomposition
-                // {
-                //     let _scalar_cells =
-                //         ec_chip.decompose_scalar(&mut region, &config, &self.s, &mut offset)?;
-                // }
+                // unit test: scalar decomposition
+                {
+                    let start = offset;
+                    let _scalar_cells =
+                        ec_chip.decompose_scalar(&mut region, &config, &self.s, &mut offset)?;
+                    println!("scalar decompose uses {} rows", offset - start);
+                }
 
-                // // unit test: curve mul
-                // {
-                //     println!("curve point: {:?}", self.p1.mul(self.s).to_affine());
-
-                //     let _scalar_cells = ec_chip.point_mul(
-                //         &mut region,
-                //         &config,
-                //         &self.p1,
-                //         &self.s,
-                //         &mut offset,
-                //     )?;
-                // }
+                // unit test: curve mul
+                {
+                    let start = offset;
+                    let p5_rec =
+                        ec_chip.point_mul(&mut region, &config, &self.p1, &self.s, &mut offset)?;
+                    region.constrain_equal(p5.x.cell(), p5_rec.x.cell())?;
+                    region.constrain_equal(p5.y.cell(), p5_rec.y.cell())?;
+                    println!("curve mul uses {} rows", offset - start);
+                }
 
                 // pad the last two rows
                 ec_chip.pad(&mut region, &config, &mut offset)?;
@@ -182,7 +182,7 @@ impl Circuit<Fq> for ECTestCircuit {
 
 #[test]
 fn test_ec_ops() {
-    let k = 10;
+    let k = 14;
 
     let mut rng = test_rng();
     let s = Fr::random(&mut rng);
@@ -190,9 +190,17 @@ fn test_ec_ops() {
     let p2 = G1::random(&mut rng).to_affine();
     let p3 = (p1 + p2).to_affine();
     let p4 = (p1 + p1).to_affine();
+    let p5 = p1.mul(s).to_affine();
 
     {
-        let circuit = ECTestCircuit { s, p1, p2, p3, p4 };
+        let circuit = ECTestCircuit {
+            s,
+            p1,
+            p2,
+            p3,
+            p4,
+            p5,
+        };
 
         let prover = MockProver::run(k, &circuit, vec![]).unwrap();
         prover.assert_satisfied();
@@ -201,7 +209,14 @@ fn test_ec_ops() {
     // error case: add not equal
     {
         let p3 = (p1 + p1).to_affine();
-        let circuit = ECTestCircuit { s, p1, p2, p3, p4 };
+        let circuit = ECTestCircuit {
+            s,
+            p1,
+            p2,
+            p3,
+            p4,
+            p5,
+        };
 
         let prover = MockProver::run(k, &circuit, vec![]).unwrap();
         assert!(prover.verify().is_err());
@@ -210,7 +225,14 @@ fn test_ec_ops() {
     // error case: double not equal
     {
         let p4 = (p1 + p2).to_affine();
-        let circuit = ECTestCircuit { s, p1, p2, p3, p4 };
+        let circuit = ECTestCircuit {
+            s,
+            p1,
+            p2,
+            p3,
+            p4,
+            p5,
+        };
 
         let prover = MockProver::run(k, &circuit, vec![]).unwrap();
         assert!(prover.verify().is_err());

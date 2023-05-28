@@ -4,6 +4,11 @@ Native field curve arithmetics
 This repo implements native field arithmetics for short Weierstrass curves, using a nice trick from [Tianyi Liu](https://liutianyi.site/).
 It is efficient and is __almost generic__ for both short Weierstrass curves and twisted Edward curves.
 
+# Performance
+
+- A group mul takes __`1221` rows, `2` witness columns and `3` selector columns__.
+- In comparison, [Jellyfish](https://github.com/EspressoSystems/jellyfish/blob/main/relation/src/gadgets/ecc/msm.rs#L94) uses `1865` rows, `5` witness columns and `13` selector columns.
+
 # Gate config
 The gate configuration is:
 
